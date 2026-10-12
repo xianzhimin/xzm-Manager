@@ -1,0 +1,2140 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=3.0, user-scalable=yes">
+<title>xzm 管理器</title>
+<script>
+/* 启动探针：在任何主逻辑前运行，把关键状态写进页面，方便定位崩溃点 */
+window.__XZM_BOOT__ = { ver:'1.0.52', t:Date.now(), steps:[] };
+window.__xzmStep = function(s){ try{ window.__XZM_BOOT__.steps.push(s); var el=document.getElementById('bootProbe'); if(el) el.textContent = '构建 ' + window.__XZM_BOOT__.ver + ' | 启动: ' + window.__XZM_BOOT__.steps.join(' → '); }catch(e){} };
+window.addEventListener('error', function(e){
+  try{
+    var el = document.getElementById('bootProbe');
+    if(el){ el.style.display='block'; el.style.background='#FEE'; el.style.color='#900';
+      el.textContent = '启动错误: ' + (e.message||e.error) + (e.lineno?(' @行'+e.lineno):''); }
+  }catch(_){}
+});
+window.__xzmStep('head-ok');
+/* 调试：记录触摸/点击/错误到探针，便于定位"点不动" */
+(function(){
+  window.__xzmLog = [];
+  function add(s){ try{ window.__xzmLog.push(s); if(window.__xzmLog.length>12) window.__xzmLog.shift();
+    var el=document.getElementById('bootProbe'); if(el) el.textContent='启动: '+window.__XZM_BOOT__.steps.join(' → ')+' | 触摸:'+window.__xzmLog.join(',');
+  }catch(e){} }
+  ['touchstart','pointerdown','click'].forEach(function(t){
+    document.addEventListener(t, function(e){
+      var tg=e.target, id=(tg&&tg.id)?('#'+tg.id):((tg&&tg.className)?('.'+String(tg.className).split(' ')[0]):(tg&&tg.tagName));
+      add(t.charAt(0)+':'+id);
+    }, true);
+  });
+})();
+</script>
+<style>
+  :root{
+    --bg:#F6F7F9;--surface:#FFFFFF;--surface-2:#F1F3F6;--line:#E5E8EE;--line-strong:#D6DAE3;
+    --text:#1F2430;--text-2:#5B6474;--muted:#98A1B2;
+    --main:#2F6BFF;--main-soft:#EAF0FF;--main-line:#C9D9FF;
+    --accent:#12B886;--accent-soft:#E6F8F2;--warn:#F08C00;--warn-soft:#FFF4E2;
+    --danger:#E03131;--danger-soft:#FDECEC;
+    --shadow-sm:0 1px 2px rgba(24,32,48,.06),0 1px 3px rgba(24,32,48,.05);
+    --shadow:0 6px 20px rgba(24,32,48,.08),0 2px 6px rgba(24,32,48,.05);
+    --shadow-lg:0 18px 50px rgba(24,32,48,.16);
+    --radius:14px;--radius-sm:10px;--radius-xs:8px;
+    --font:-apple-system,'Segoe UI',system-ui,'Microsoft YaHei','PingFang SC',sans-serif;
+    --mono:ui-monospace,SFMono-Regular,'SF Mono',Consolas,'Microsoft YaHei',monospace;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{font-family:var(--font);background:var(--bg);color:var(--text);
+    padding:14px 14px calc(84px + env(safe-area-inset-bottom));
+    padding-top:calc(12px + env(safe-area-inset-top));-webkit-font-smoothing:antialiased;overflow-x:hidden}
+  button,.btn{font-family:inherit;border:1px solid var(--line);background:var(--surface);color:var(--text);
+    border-radius:var(--radius-xs);padding:9px 12px;font-size:13px;font-weight:600;cursor:pointer;
+    display:inline-flex;align-items:center;gap:6px;transition:background .14s,border-color .14s,color .14s;
+    -webkit-tap-highlight-color:transparent;white-space:nowrap}
+  button:hover{border-color:var(--line-strong);background:var(--surface-2)}
+  button.primary{background:var(--main);border-color:var(--main);color:#fff}
+  button.accent{background:var(--accent-soft);border-color:#B9E9DA;color:#0B8A63}
+  button.danger{background:var(--danger-soft);border-color:#F6C9C9;color:var(--danger)}
+  button.ghost{background:transparent;border-color:transparent}
+  button.ghost:hover{background:var(--surface-2)}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  .icon-btn{width:38px;height:38px;justify-content:center;padding:0;font-size:16px}
+
+  .app-header{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:var(--surface);
+    border:1px solid var(--line);border-radius:var(--radius);padding:11px 13px;box-shadow:var(--shadow-sm);margin-bottom:11px}
+  .brand{display:flex;align-items:center;gap:11px;min-width:0}
+  .brand-logo{width:38px;height:38px;border-radius:11px;flex:0 0 auto;
+    background:linear-gradient(135deg,#2F6BFF,#12B886);color:#fff;display:grid;place-items:center;
+    font-weight:800;font-size:14px;letter-spacing:-.5px;box-shadow:0 4px 12px rgba(47,107,255,.28)}
+  .brand-title{font-size:16px;font-weight:800;letter-spacing:-.2px}
+  .brand-sub{font-size:11px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .chips{display:flex;gap:6px;margin-left:auto;flex-wrap:wrap}
+  .chip{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;padding:5px 9px;
+    border-radius:999px;border:1px solid var(--line-strong);background:var(--surface-2);color:var(--text-2)}
+  .chip .dot{width:6px;height:6px;border-radius:50%;background:var(--accent)}
+  .chip.root{background:var(--main-soft);border-color:var(--main-line);color:var(--main)}
+
+  .toolbar{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:11px;align-items:center}
+  .toolbar .sep{width:1px;height:24px;background:var(--line);margin:0 2px}
+
+  .pathbar{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--line);
+    border-radius:var(--radius-sm);padding:7px 9px;box-shadow:var(--shadow-sm);margin-bottom:11px}
+  .pathbar .crumb{display:flex;align-items:center;gap:1px;flex:1;min-width:0;overflow-x:auto;scrollbar-width:none}
+  .pathbar .crumb::-webkit-scrollbar{display:none}
+  .crumb b{font-size:13px;font-weight:600;color:var(--text-2);padding:4px 6px;border-radius:6px;cursor:pointer;white-space:nowrap}
+  .crumb b:hover{background:var(--surface-2);color:var(--text)}
+  .crumb .slash{color:var(--muted);font-size:12px}
+  .path-input{flex:1;min-width:0;border:1px solid var(--main-line);background:var(--surface);
+    border-radius:6px;padding:4px 7px;font:600 12px/1.4 var(--mono);color:var(--text);outline:none;display:none}
+
+  .panes{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+  .pane{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+    box-shadow:var(--shadow-sm);overflow:hidden;display:flex;flex-direction:column;min-width:0}
+  .pane.active{border-color:var(--main-line);box-shadow:0 0 0 1px var(--main-line),var(--shadow)}
+  .pane-head{display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--line);background:var(--surface-2)}
+  .pane-tag{font-size:11px;font-weight:800;color:var(--text-2);background:var(--surface);border:1px solid var(--line-strong);
+    border-radius:6px;padding:3px 8px;flex:0 0 auto;cursor:pointer}
+  .pane.active .pane-tag{color:var(--main);border-color:var(--main-line);background:var(--main-soft)}
+  .pane-path{font:600 11.5px/1.4 var(--mono);color:var(--text-2);white-space:nowrap;overflow:hidden;
+    text-overflow:ellipsis;min-width:0;flex:1}
+  .pane-count{font-size:11px;color:var(--muted);flex:0 0 auto}
+
+  .pane-sort{margin-left:auto;flex:0 0 auto}
+  .pane-sort.on{color:var(--main);border-color:var(--main-line);background:var(--main-soft)}
+  .sort-menu{position:fixed;z-index:70;background:var(--surface);border:1px solid var(--line-strong);
+    border-radius:12px;box-shadow:var(--shadow-lg);padding:6px;min-width:150px;font-size:13px}
+  .sort-menu .si{display:flex;align-items:center;gap:8px;padding:9px 11px;border-radius:8px;cursor:pointer}
+  .sort-menu .si:hover{background:var(--surface-2)}
+  .sort-menu .si.on{color:var(--main);font-weight:700;background:var(--main-soft)}
+  .sort-menu .sep2{height:1px;background:var(--line);margin:5px 4px}
+  .sort-menu .si .arw{margin-left:auto;font-size:12px;color:var(--muted)}
+  .list{overflow-y:auto;max-height:56vh;min-height:360px;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+  .list.loading{opacity:.5;pointer-events:none}
+  .row{display:grid;grid-template-columns:34px minmax(0,1fr) auto;align-items:start;gap:10px;
+    padding:9px 11px;border-bottom:1px solid var(--line);cursor:pointer;user-select:none;transition:background .12s}
+  .row:last-child{border-bottom:0}
+  .row:hover{background:var(--surface-2)}
+  .row.sel{background:var(--main-soft);box-shadow:inset 3px 0 0 var(--main)}
+  .row.multi{background:#E6F8F2;box-shadow:inset 3px 0 0 var(--accent)}
+  .row.located{animation:loc 1.2s ease}
+  @keyframes loc{0%,100%{background:var(--main-soft)}40%{background:#D6F5EA}}
+  .ic{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;font-size:15px;flex:0 0 auto}
+  .ic.dir{background:var(--main-soft);color:var(--main)}
+  .ic.image{background:var(--accent-soft);color:var(--accent)}
+  .ic.text{background:var(--surface-2);color:var(--text-2);border:1px solid var(--line)}
+  .ic.archive{background:var(--warn-soft);color:var(--warn)}
+  .ic.script,.ic.exec{background:#F0EBFF;color:#7048E8}
+  .ic.video{background:#FDE8F1;color:#C2255C}
+  .ic.audio{background:#E7F5FF;color:#1971C2}
+  .ic.link{background:var(--surface-2);color:var(--muted)}
+  .row-body{min-width:0;overflow:hidden}
+  .name{font-size:13.5px;font-weight:600;white-space:normal;overflow-wrap:anywhere;word-break:break-word;line-height:1.35;
+    display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:4;overflow:hidden}
+  .meta{font-size:11px;color:var(--muted);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    font-family:var(--mono)}
+  .more{opacity:0;transition:opacity .12s;width:30px;height:30px;font-size:17px}
+  .row:hover .more{opacity:1}
+
+  .empty{padding:40px 16px;text-align:center;color:var(--muted);font-size:13px}
+
+  .tabbar{position:fixed;left:0;right:0;bottom:0;z-index:30;display:grid;grid-template-columns:repeat(4,1fr);gap:2px;
+    background:rgba(255,255,255,.94);backdrop-filter:blur(12px);border-top:1px solid var(--line);
+    padding:7px 8px calc(7px + env(safe-area-inset-bottom))}
+  .tab{display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 0;border:0;background:transparent;
+    color:var(--muted);font-size:10.5px;font-weight:700;border-radius:10px}
+  .tab .ti{font-size:18px;line-height:1}
+  .tab.on{color:var(--main);background:var(--main-soft)}
+
+  .page{display:none}.page.on{display:block}
+
+  .sheet-backdrop{position:fixed;inset:0;z-index:60;background:rgba(20,26,38,.34);backdrop-filter:blur(2px);
+    display:none;align-items:flex-end}
+  .sheet-backdrop.on{display:grid}
+  .sheet{background:var(--surface);border-radius:20px 20px 0 0;box-shadow:var(--shadow-lg);
+    padding:10px 12px calc(16px + env(safe-area-inset-bottom));animation:up .22s cubic-bezier(.2,.8,.3,1);max-height:82vh;display:flex;flex-direction:column}
+  @keyframes up{from{transform:translateY(24px);opacity:.4}to{transform:translateY(0);opacity:1}}
+  .sheet-grip{width:38px;height:4px;border-radius:99px;background:var(--line-strong);margin:2px auto 10px}
+  .sheet-title{font-size:13px;font-weight:800;padding:0 4px 9px;border-bottom:1px solid var(--line);margin-bottom:9px;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:0 0 auto}
+  .sheet-title span{display:block;font:500 11px/1.5 var(--mono);color:var(--muted);margin-top:3px;font-weight:400}
+  .sheet-scroll{overflow-y:auto;overscroll-behavior:contain}
+  .grp{margin-bottom:11px}
+  .grp:last-child{margin-bottom:0}
+  .grp-name{display:flex;align-items:center;gap:7px;font-size:11px;font-weight:800;color:var(--muted);letter-spacing:.4px;padding:2px 4px 8px}
+  .grp-name:after{content:"";flex:1;height:1px;background:var(--line)}
+  .acts{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+  .act{display:flex;flex-direction:column;align-items:center;gap:7px;padding:11px 4px;border:1px solid var(--line);
+    background:var(--surface);border-radius:12px;font-size:11.5px;font-weight:700;color:var(--text-2);cursor:pointer}
+  .act .ai{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;font-size:16px;background:var(--surface-2)}
+  .act.blue .ai{background:var(--main-soft);color:var(--main)}
+  .act.green .ai{background:var(--accent-soft);color:var(--accent)}
+  .act.amber .ai{background:var(--warn-soft);color:var(--warn)}
+  .act.red .ai{background:var(--danger-soft);color:var(--danger)}
+  .act:hover{border-color:var(--line-strong);background:var(--surface-2)}
+
+  .dlg-backdrop{position:fixed;inset:0;z-index:80;display:none;place-items:center;padding:16px;
+    background:rgba(20,26,38,.44);backdrop-filter:blur(3px)}
+  .dlg-backdrop.on{display:grid}
+  .dlg{width:min(520px,calc(100vw - 28px));max-height:calc(100vh - 32px);display:flex;flex-direction:column;
+    background:var(--surface);border-radius:16px;box-shadow:var(--shadow-lg);overflow:hidden}
+  .dlg-head{display:flex;align-items:center;gap:10px;padding:14px 15px;border-bottom:1px solid var(--line)}
+  .dlg-mark{width:32px;height:32px;border-radius:8px;display:grid;place-items:center;font-size:15px;
+    background:var(--main-soft);color:var(--main);flex:0 0 auto}
+  .dlg-title{font-size:15px;font-weight:800}
+  .dlg-body{padding:15px;overflow-y:auto;font-size:13px;line-height:1.6;color:var(--text-2)}
+  .dlg-input{width:100%;margin-top:10px;padding:11px 12px;border:1px solid var(--main-line);border-radius:9px;
+    background:var(--surface);color:var(--text);font:600 14px/1.3 var(--font);outline:none}
+  .dlg-input:focus{border-color:var(--main);box-shadow:0 0 0 3px var(--main-soft)}
+  .dlg-actions{display:flex;justify-content:flex-end;gap:8px;padding:0 15px 15px}
+  .dlg-actions button{min-width:80px;justify-content:center}
+  .dlg-check{display:flex;align-items:center;gap:9px;margin-top:11px;padding:9px 11px;border:1px solid var(--line);
+    border-radius:8px;background:var(--surface-2);font-size:12.5px;font-weight:600;color:var(--text-2);cursor:pointer}
+  .arc-head{font-size:12px;font-weight:700;color:var(--text-3);margin-bottom:8px}
+  .arc-list{max-height:48vh;overflow-y:auto;border:1px solid var(--line);border-radius:9px;background:var(--surface)}
+  .arc-row{display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--line);cursor:pointer}
+  .arc-row:last-child{border-bottom:none}
+  .arc-row:active{background:var(--main-soft)}
+  .arc-ico{flex:0 0 auto;font-size:14px}
+  .arc-name{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+    font:600 12.5px/1.3 var(--mono);color:var(--text)}
+  .arc-size{flex:0 0 auto;font:600 11px/1.3 var(--mono);color:var(--text-3)}
+  .arc-out{flex:0 0 auto;padding:4px 8px;border:1px solid var(--main-line);border-radius:7px;background:var(--surface-2);
+    color:var(--main);font:700 11px/1.2 var(--font);cursor:pointer}
+  .arc-out:active{background:var(--main-soft)}
+  .arc-empty{padding:16px;text-align:center;color:var(--text-3);font-size:12.5px}
+  .arc-page-head{display:flex;align-items:center;gap:8px;margin-bottom:9px;flex-wrap:wrap}
+  .arc-page-name{font:800 14px/1.3 var(--font);color:var(--text);max-width:44%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .arc-page-crumb{flex:1 1 auto;min-width:0;font:600 11.5px/1.3 var(--mono);color:var(--text-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .arc-page-actions{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+  .arc-page-list{border:1px solid var(--line);border-radius:10px;background:var(--surface);overflow-y:auto;max-height:62vh;min-height:220px;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+  .app-search-wrap{margin-bottom:9px}
+  .app-search-wrap input{width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid var(--line);border-radius:9px;background:var(--surface);color:var(--text);font:500 13px/1.2 var(--mono);outline:none}
+  .app-search-wrap input:focus{border-color:var(--main)}
+  .arc-item .apkg{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:600 12.5px/1.35 var(--mono);color:var(--text)}
+  .arc-item .aver{flex:0 0 auto;font:600 10.5px/1.3 var(--mono);color:var(--text-3)}
+  .app-row{gap:11px}
+  .app-ico{flex:0 0 auto;width:40px;height:40px;border-radius:10px;object-fit:contain;background:var(--surface-2);display:inline-flex;align-items:center;justify-content:center}
+  .app-ico.ph{font-size:20px}
+  .app-meta{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:2px}
+  .app-name{font:700 14px/1.25 var(--font);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .app-pkg{font:500 10.5px/1.3 var(--mono);color:var(--text-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .app-op{padding:6px 8px !important}
+  .arc-item{display:flex;align-items:center;gap:9px;padding:10px 12px;border-bottom:1px solid var(--line);cursor:pointer}
+  .arc-item:last-child{border-bottom:none}
+  .arc-item:active{background:var(--main-soft)}
+  .arc-item .ai{flex:0 0 auto;font-size:15px}
+  .arc-item .an{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:600 13px/1.3 var(--mono);color:var(--text)}
+  .arc-item .as{flex:0 0 auto;font:600 11px/1.3 var(--mono);color:var(--text-3)}
+  .dlg-check input{width:17px;height:17px;accent-color:var(--main)}
+
+  .editor{position:fixed;inset:0;z-index:85;display:none;flex-direction:column;background:var(--surface)}
+  .editor.on{display:flex}
+  .editor-head{display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--line);
+    background:var(--surface-2)}
+  .editor-name{font-size:14px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0}
+  .editor-name small{display:block;font:500 10px/1.4 var(--mono);color:var(--muted);font-weight:400}
+  .editor-body{flex:1;display:grid;grid-template-columns:48px minmax(0,1fr);min-height:0;overflow:hidden;background:#FBFCFD}
+  .editor-gutter{overflow:hidden;border-right:1px solid var(--line);background:var(--surface-2);color:var(--muted);
+    user-select:none;position:relative}
+  .editor-gutter-in{position:absolute;left:0;right:0;top:0;padding:12px 8px;text-align:right;
+    font:13px/1.55 var(--mono);white-space:pre}
+  .editor-area{width:100%;height:100%;padding:12px;border:0;resize:none;background:transparent;color:var(--text);
+    font:13px/1.55 var(--mono);white-space:pre;overflow:auto;tab-size:2;outline:none}
+  .editor-foot{display:flex;align-items:center;gap:8px;padding:9px 12px;border-top:1px solid var(--line);background:var(--surface-2)}
+  .editor-meta{font-size:11px;color:var(--muted);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+  .term{position:fixed;inset:0;z-index:85;display:none;flex-direction:column;background:#0B0E14}
+  .term.on{display:flex}
+  .term-head{display:flex;align-items:center;gap:10px;padding:10px 12px;background:#11151E;border-bottom:1px solid #1E2533;color:#D5DCE8}
+  .term-head .editor-name{color:#D5DCE8}.term-head .editor-name small{color:#7C8798}
+  .term-frame{flex:1;width:100%;border:0;background:#0B0E14}
+
+  .toast{position:fixed;left:50%;bottom:96px;z-index:95;transform:translate(-50%,14px);opacity:0;
+    background:#1F2430;color:#fff;font-size:13px;font-weight:600;padding:11px 16px;border-radius:11px;
+    box-shadow:var(--shadow-lg);transition:opacity .18s,transform .18s;pointer-events:none;max-width:min(560px,90vw);text-align:center}
+  .toast.on{opacity:1;transform:translate(-50%,0)}
+  .toast.ok{background:#0B8A63}.toast.err{background:#C92A2A}
+
+  .busybar{position:fixed;left:0;right:0;top:0;height:3px;z-index:99;background:transparent;overflow:hidden;display:none}
+  .busybar.on{display:block}
+  .busybar:after{content:"";position:absolute;left:-40%;top:0;height:100%;width:40%;
+    background:linear-gradient(90deg,transparent,var(--main),transparent);animation:busy 1s linear infinite}
+  @keyframes busy{to{left:100%}}
+
+  .list-row-mini{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;
+    padding:10px 11px;border:1px solid var(--line);border-radius:10px;background:var(--surface);margin-bottom:8px}
+  .mini-t{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .mini-p{font-size:11px;color:var(--muted);font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+  .hintbox{padding:12px 14px;border:1px dashed var(--line-strong);border-radius:12px;background:var(--surface);
+    font-size:12.5px;color:var(--text-2);line-height:1.7;margin-bottom:12px}
+  .btnline{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+
+  @media (max-width:900px){
+    /* 手机：app 式固定布局 —— body 不滚动，只有列表内部滚动，底部导航永不遮挡 */
+    html,body{height:100%;overflow:hidden}
+    body{padding:6px 6px 0;padding-top:calc(6px + env(safe-area-inset-top));display:flex;flex-direction:column}
+    /* 当前显示的 page 撑满剩余高度 */
+    .page.on{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;overflow-y:auto;-webkit-overflow-scrolling:touch;
+      padding-bottom:calc(62px + env(safe-area-inset-bottom))}
+    #page-file.on{overflow:hidden}
+    .app-header{padding:7px 10px;margin-bottom:8px;gap:8px;flex:0 0 auto}
+    .brand-title{font-size:16px}
+    .brand-sub{display:none}
+    .toolbar{margin-bottom:8px;flex:0 0 auto}
+    .toolbar button{padding:7px 9px}
+    .toolbar .mobile-hide{display:none}
+    .pathbar{margin-bottom:8px;padding:6px 8px;flex:0 0 auto}
+    /* 两栏并排，占满剩余高度 */
+    .panes{flex:1 1 auto;min-height:0;display:flex;flex-direction:row;gap:8px}
+    .pane{flex:1 1 0;min-width:0;display:flex;flex-direction:column;overflow:hidden}
+    /* 只有列表内部滚动（覆盖桌面的 max-height:56vh / min-height:360px） */
+    .pane .list{flex:1 1 auto;min-height:0;max-height:none;height:auto;overflow-y:auto;-webkit-overflow-scrolling:touch}
+    .acts{grid-template-columns:repeat(4,1fr)}
+    .tabbar{background:#FFFFFF;backdrop-filter:none;-webkit-backdrop-filter:none}
+    .row{transition:none}
+    #bootProbe{display:none}
+  }
+  @media (max-width:560px){
+    /* 窄竖屏：仍保持左右两栏，只做更紧凑的间距 */
+    .panes{gap:6px}
+    .chips{display:none}
+    .app-header{padding:6px 8px}
+    .toolbar{gap:5px}
+    .toolbar button{font-size:11px;padding:6px 8px}
+    .acts{grid-template-columns:repeat(4,1fr)}
+    .row{padding:8px 8px;gap:7px}
+    .row .name{font-size:13px}
+  }
+</style>
+</head>
+<body>
+
+<div id="bootProbe" style="margin:6px;padding:6px 8px;border-radius:8px;background:#EFEFEF;color:#333;font:12px/1.5 monospace;white-space:pre-wrap;pointer-events:none">启动…</div>
+<div class="busybar" id="busybar"></div>
+
+<header class="app-header">
+  <div class="brand">
+    <div class="brand-logo">xzm</div>
+    <div class="brand-title-wrap" style="min-width:0">
+      <div class="brand-title">xzm 管理器</div>
+      <div class="brand-sub" id="brandSub">文件管理 · Root 终端</div>
+    </div>
+  </div>
+  <div class="chips">
+    <span class="chip" id="chipEnv">检测中…</span>
+    <span class="chip" id="chipVer">v1.0.52</span>
+  </div>
+</header>
+
+<!-- ═══ 文件页 ═══ -->
+<div class="page on" id="page-file">
+  <div class="toolbar">
+    <button class="icon-btn ghost" id="btnBack" title="返回">←</button>
+    <button class="icon-btn ghost" id="btnUp" title="上一级">↑</button>
+    <button class="primary" id="btnNew">＋ 新建</button>
+    <button class="mobile-hide" id="btnCopyAct">复制</button>
+    <button class="mobile-hide" id="btnMoveAct">移动</button>
+    <button class="danger mobile-hide" id="btnDelAct">删除</button>
+    <div class="sep mobile-hide"></div>
+    <button class="icon-btn" id="btnSearch" title="搜索">🔍</button>
+    <button class="icon-btn" id="btnRefresh" title="刷新">⟳</button>
+    <button class="icon-btn mobile-hide" id="btnSync" title="同步对栏">⇄</button>
+  </div>
+
+  <div class="pathbar">
+    <span class="crumb" id="crumb"></span>
+    <input class="path-input" id="pathInput" spellcheck="false">
+    <button class="ghost icon-btn" id="btnEditPath" title="编辑路径">✎</button>
+  </div>
+
+  <div class="panes">
+    <section class="pane active" id="paneA" data-side="A">
+      <div class="pane-head">
+        <span class="pane-tag" id="tagA">左栏</span>
+        <span class="pane-path" id="pathA">/sdcard</span>
+        <span class="pane-count" id="countA"></span>
+        <button class="ghost icon-btn pane-sort" id="sortBtnA" title="排序方式">⇅</button>
+        <button class="ghost icon-btn pane-switch" id="switchA" title="切换到另一栏" style="display:none">⇄</button>
+      </div>
+      <div class="list" id="listA"></div>
+    </section>
+    <section class="pane" id="paneB" data-side="B">
+      <div class="pane-head">
+        <span class="pane-tag" id="tagB">右栏</span>
+        <span class="pane-path" id="pathB">/sdcard/Download</span>
+        <span class="pane-count" id="countB"></span>
+        <button class="ghost icon-btn pane-sort" id="sortBtnB" title="排序方式">⇅</button>
+        <button class="ghost icon-btn pane-switch" id="switchB" title="切换到另一栏" style="display:none">⇄</button>
+      </div>
+      <div class="list" id="listB"></div>
+    </section>
+  </div>
+</div>
+
+<!-- ═══ 终端页 ═══ -->
+<div class="page" id="page-term">
+  <div class="hintbox">
+    Root 终端 · 在这里可直接以 root 身份执行命令。首次打开会在后台启动终端服务。
+  </div>
+  <div class="btnline">
+    <button class="primary" id="btnTermStart">启动终端</button>
+    <button id="btnTermStop">停止</button>
+    <button id="btnTermOpen">新窗口打开</button>
+    <button id="btnTermLog">日志</button>
+  </div>
+  <div style="border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#0B0E14;height:60vh">
+    <iframe id="termFrame" style="width:100%;height:100%;border:0;background:#0B0E14" src="about:blank"></iframe>
+  </div>
+</div>
+
+<!-- ═══ 压缩包浏览页 ═══ -->
+<div class="page" id="page-arc">
+  <div class="arc-page-head">
+    <button class="icon-btn ghost" id="arcBack" title="返回上一级目录">↑</button>
+    <span class="arc-page-name" id="arcPageName">压缩包</span>
+    <span class="arc-page-crumb" id="arcPageCrumb" title="包内路径"></span>
+    <button class="ghost" id="arcClose" title="退出浏览">✕ 退出</button>
+  </div>
+  <div class="arc-page-actions">
+    <button class="primary" id="arcExtractAll">📤 全部解压到对栏</button>
+    <button id="arcExtractHere">🗂️ 解压到当前目录</button>
+  </div>
+  <div class="arc-page-list" id="arcPageList"></div>
+</div>
+
+<!-- ═══ 书签页 ═══ -->
+<div class="page" id="page-book">
+  <div class="hintbox">
+    书签保存在模块数据目录，更新模块或更换宿主后仍保留。点击条目直接跳转，右侧可删除。
+  </div>
+  <div class="btnline">
+    <button class="primary" id="btnAddBook">＋ 添加当前左栏目录</button>
+    <button id="btnAddBookR">＋ 添加当前右栏目录</button>
+  </div>
+  <div id="bookList"></div>
+</div>
+
+<!-- ═══ 设置页 ═══ -->
+<div class="page" id="page-set">
+  <div class="hintbox" id="setInfo">读取中…</div>
+  <div class="btnline">
+    <button id="btnClearPref">清空书签与偏好</button>
+    <button id="btnViewLog">查看运行日志</button>
+    <button id="btnTestRoot">检测 Root</button>
+    <button id="btnDiag">环境诊断</button>
+  </div>
+  <div class="hintbox">
+    <b>关于</b><br>
+    xzm 管理器 · 浅色简约 · 全管理器兼容<br>
+    模块 ID：xzm_manager · 数据目录：/data/adb/xzm_manager
+  </div>
+</div>
+
+<!-- ═══ 应用管理页 ═══ -->
+<div class="page" id="page-apps">
+  <div class="arc-page-head">
+    <span class="arc-page-name">已安装应用</span>
+    <span class="arc-page-crumb" id="appCount"></span>
+    <button class="ghost" id="appRefresh" title="刷新">⟳</button>
+  </div>
+  <div class="app-search-wrap">
+    <input id="appSearch" type="text" placeholder="搜索包名…" autocomplete="off">
+  </div>
+  <div class="arc-page-list" id="appList"></div>
+</div>
+
+<nav class="tabbar">
+  <button class="tab on" data-page="file"><span class="ti">📁</span>文件</button>
+  <button class="tab" data-page="apps"><span class="ti">📦</span>应用</button>
+  <button class="tab" data-page="term"><span class="ti">⌨️</span>终端</button>
+  <button class="tab" data-page="book"><span class="ti">🔖</span>书签</button>
+  <button class="tab" data-page="set"><span class="ti">⚙️</span>设置</button>
+</nav>
+
+<div class="sheet-backdrop" id="sheetBk">
+  <div class="sheet">
+    <div class="sheet-grip"></div>
+    <div class="sheet-title" id="sheetTitle">操作<span id="sheetSub"></span></div>
+    <div class="sheet-scroll" id="sheetActs"></div>
+  </div>
+</div>
+
+<div class="dlg-backdrop" id="dlgBk">
+  <div class="dlg">
+    <div class="dlg-head"><span class="dlg-mark" id="dlgMark">✎</span><span class="dlg-title" id="dlgTitle">提示</span></div>
+    <div class="dlg-body">
+      <div id="dlgMsg"></div>
+      <input class="dlg-input" id="dlgInput" style="display:none" spellcheck="false">
+      <label class="dlg-check" id="dlgCheckWrap" style="display:none"><input type="checkbox" id="dlgCheck"><span id="dlgCheckTxt"></span></label>
+    </div>
+    <div class="dlg-actions">
+      <button id="dlgCancel">取消</button>
+      <button class="primary" id="dlgOk">确定</button>
+    </div>
+  </div>
+</div>
+
+<div class="editor" id="editor">
+  <div class="editor-head">
+    <button class="ghost icon-btn" id="edClose">✕</button>
+    <div class="editor-name" id="edName">文件<small id="edPath"></small></div>
+    <button class="primary" id="edSave">保存</button>
+  </div>
+  <div class="editor-body">
+    <div class="editor-gutter"><div class="editor-gutter-in" id="edGutter">1</div></div>
+    <textarea class="editor-area" id="edArea" spellcheck="false" wrap="off"></textarea>
+  </div>
+  <div class="editor-foot">
+    <span class="editor-meta" id="edMeta"></span>
+    <button class="ghost" id="edSearchBtn">查找替换</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script>
+/* ===== app-core.js ===== */
+/* ══════════════════════════════════════════════
+   xzm 管理器 · 前端逻辑
+   桥接层：优先用 KernelSU exec()，否则用本机降级（调试用）
+   ══════════════════════════════════════════════ */
+
+const MODDATA = '/data/adb/xzm_manager';
+const CTL = MODDATA + '/bin/../../..'; // 占位，实际用模块路径
+let moduleDir = '/data/adb/modules/xzm_manager'; // 会被探测覆盖
+
+/* ── 桥接：执行 shell ── */
+let ksu = null;
+let bridgeKind = 'fallback';
+
+async function initBridge(){
+  // 独立 WebUI 本地服务：页面通过 http(s) 加载，且同源提供 cgi-bin/shell —— 优先
+  if(location.protocol === 'http:' || location.protocol === 'https:'){
+    try{
+      const probe = await httpShell('echo __xzm_probe__');
+      if((probe.out||'').includes('__xzm_probe__')){
+        bridgeKind = 'httpcgi'; return 'httpcgi';
+      }
+    }catch(e){ /* 非本服务，继续尝试 ksu */ }
+  }
+  // 电脑预览/调试：强制降级模式（?demo=1）
+  const forceDemo = /[?&]demo=1/.test(location.search);
+  if(forceDemo){
+    bridgeKind = 'fallback'; return 'fallback';
+  }
+  // 1) window.ksu 原生注入对象（回调式）—— 先探测确认真的能用
+  if(window.ksu && typeof window.ksu.exec === 'function'){
+    ksu = window.ksu;
+    const probe = await ksuExecCallback('echo __xzm_probe__');
+    if((probe.out||'').includes('__xzm_probe__')){
+      bridgeKind = 'ksu-global'; return 'kernelsu';
+    }
+  }
+  // 2) 官方 npm 包（CDN）—— 用经典 script 注入，避免动态 import() 在旧 WebView 上 SyntaxError
+  //    注意：只有在 window.ksu 不可用时才尝试
+  try{
+    const m = await loadKernelsuCdn();
+    if(m && typeof m.exec === 'function'){
+      try{
+        const probe = await m.exec('echo __xzm_probe__');
+        if(probe && (probe.stdout||'').includes('__xzm_probe__')){
+          ksu = m; bridgeKind = 'kernelsu-cdn'; return 'kernelsu';
+        }
+      }catch(e){ /* 无效 */ }
+    }
+  }catch(e){ /* 降级 */ }
+  bridgeKind = 'fallback';
+  return 'fallback';
+}
+
+/* 通过 <script> 注入加载 kernelsu CDN 包（返回其默认导出），带超时 */
+function loadKernelsuCdn(){
+  return new Promise((resolve)=>{
+    var done = false;
+    var finish = (v)=>{ if(!done){ done=true; resolve(v); } };
+    setTimeout(()=>finish(null), 3000);
+    try{
+      var s = document.createElement('script');
+      s.type = 'module';
+      s.textContent = "import ksu from 'https://cdn.jsdelivr.net/npm/kernelsu/+esm'; window.__xzm_ksu_cdn = ksu;";
+      s.onload = ()=>finish(window.__xzm_ksu_cdn || null);
+      s.onerror = ()=>finish(null);
+      document.head.appendChild(s);
+      // module 脚本无可靠 onload 时，轮询兜底
+      var tries = 0;
+      var iv = setInterval(()=>{
+        tries++;
+        if(window.__xzm_ksu_cdn){ clearInterval(iv); finish(window.__xzm_ksu_cdn); }
+        else if(tries>30){ clearInterval(iv); finish(null); }
+      }, 100);
+    }catch(e){ finish(null); }
+  });
+}
+
+/* ── 调用原生 ksu.exec（回调式）：ksu.exec(cmd, optsJson, callbackName) ── */
+function ksuExecCallback(cmd){
+  return new Promise((resolve)=>{
+    const cbName = '__xzm_cb_' + Date.now() + '_' + Math.floor(Math.random()*100000);
+    let done = false;
+    window[cbName] = (errno, stdout, stderr)=>{
+      if(done) return; done = true;
+      try{ delete window[cbName]; }catch(e){}
+      resolve({ code: (errno === undefined || errno === null) ? 0 : errno, out: stdout || '', err: stderr || '' });
+    };
+    try{
+      // 原生签名：exec(cmd, optionsJson, callbackName) —— 无返回值
+      window.ksu.exec(cmd, '{}', cbName);
+    }catch(e){
+      resolve({ code:1, out:'', err:'ksu.exec 调用异常: '+String(e) });
+    }
+    // 兜底超时
+    setTimeout(()=>{ if(!done){ done=true; resolve({ code:124, out:'', err:'ksu.exec 超时无回调' }); } }, 15000);
+  });
+}
+
+/* ── HTTP CGI 桥接（独立 WebUI 本地服务的 cgi-bin/shell）── */
+async function httpShell(cmd){
+  // 短命令用 GET（便于日志），长命令用 POST（避免 URL 长度限制）
+  let r;
+  if(cmd.length < 1500){
+    r = await fetch('cgi-bin/shell?cmd=' + encodeURIComponent(cmd), { cache:'no-store', method:'GET' });
+  }else{
+    r = await fetch('cgi-bin/shell', { cache:'no-store', method:'POST', body: cmd });
+  }
+  const t = await r.text();
+  return { code: r.ok ? 0 : r.status, out: t, err: r.ok ? '' : ('HTTP ' + r.status) };
+}
+
+async function sh(cmd){
+  // 0) 独立 WebUI 本地服务：同源 CGI（busybox httpd）
+  if(bridgeKind === 'httpcgi'){
+    try{ return await httpShell(cmd); }
+    catch(e){ return { code:1, out:'', err:'httpcgi 异常: '+String(e) }; }
+  }
+  if(ksu){
+    try{
+      // 兼容两种形态：
+      // A) npm 包封装：exec(cmd) 返回 Promise<{errno,stdout,stderr}>
+      // B) 原生注入：window.ksu.exec(cmd, optsJson, cbName) 回调式，无返回值
+      if(ksu === (window.ksu) && typeof window.ksu.exec === 'function' && window.ksu.exec.length >= 3){
+        return await ksuExecCallback(cmd);
+      }
+      const r = await ksu.exec(cmd);
+      if(r && typeof r === 'object' && ('stdout' in r || 'errno' in r)){
+        return { code: (r.errno === undefined || r.errno === null) ? 0 : r.errno, out: r.stdout || '', err: r.stderr || '' };
+      }
+      // 返回的不是预期结构 → 退回回调式
+      return await ksuExecCallback(cmd);
+    }catch(e){
+      return { code:1, out:'', err:'ksu.exec 异常: '+String(e) };
+    }
+  }
+  // 降级：本机调试服务器
+  try{
+    const r = await fetch('/__shell__', { method:'POST', body: cmd, cache:'no-store' });
+    const t = await r.text();
+    return { code: r.ok?0:r.status, out:t, err: r.ok?'':('HTTP '+r.status) };
+  }catch(e){
+    return { code:127, out:'', err:'无执行环境（未检测到 KernelSU，且非调试模式）: '+String(e) };
+  }
+}
+
+/* ── 后端调用：跑 xzmctl.sh，返回 JSON ── */
+async function ctl(action, args = []){
+  const quoted = args.map(a => `'${String(a).replace(/'/g, "'\\''")}'`).join(' ');
+  const cmd = `XZM_DATA_DIR=${MODDATA} sh ${moduleDir}/bin/xzmctl.sh ${action} ${quoted} 2>&1`;
+  const r = await sh(cmd);
+  const raw = (r.out || '').trim();
+  // 取最后一个非空行尝试解析为 JSON
+  const lines = raw.split('\n').map(s=>s.trim()).filter(Boolean);
+  for(let i = lines.length-1; i >= 0; i--){
+    const ln = lines[i];
+    if(ln.startsWith('{') || ln.startsWith('[')){
+      try{ return JSON.parse(ln); }catch(e){ /* 继续找上一行 */ }
+    }
+  }
+  return { ok:false, error:'后端响应异常: ' + (raw ? raw.slice(0,200) : (r.err||'empty')) +
+    ` [bridge=${bridgeKind}, modDir=${moduleDir}, code=${r.code}]` };
+}
+
+/* ── 探测模块目录 ── */
+async function detectModuleDir(){
+  const probe = await sh(`[ -f ${moduleDir}/bin/xzmctl.sh ] && echo yes`);
+  if(probe.out.trim()==='yes') return;
+  // 尝试各管理器常见路径
+  for(const p of ['/data/adb/modules/xzm_manager',
+                  '/data/adb/modules_update/xzm_manager',
+                  '/data/adb/ap/modules/xzm_manager']){
+    const t = await sh(`[ -f ${p}/bin/xzmctl.sh ] && echo yes`);
+    if(t.out.trim()==='yes'){ moduleDir = p; return; }
+  }
+}
+
+/* ── 状态 ── */
+const state = {
+  active: 'A',
+  path: { A:'/sdcard', B:'/sdcard/Download' },
+  entries:{ A:[], B:[] },
+  selected: { A:null, B:null },
+  multi: new Set(),
+  multiMode:false,
+  history:{ A:[], B:[] },
+  bookmarks: [],
+  editorPath:null,
+  termReady:false,
+  sortBy:'name',   // name | size | time | type
+  sortDir:'asc',   // asc | desc
+};
+
+/* ── DOM 助手 ── */
+const $ = id => document.getElementById(id);
+function toast(msg, type=''){
+  const t = $('toast');
+  t.textContent = msg; t.className = 'toast on ' + type;
+  clearTimeout(t._t); t._t = setTimeout(()=>t.className='toast', 1900);
+}
+function busy(on){ $('busybar').classList.toggle('on', on); }
+
+const TYPE_ICON = { dir:'📁', image:'🖼️', text:'📄', archive:'🗜️', script:'📜',
+  exec:'⚙️', video:'🎬', audio:'🎵', link:'🔗', file:'📄' };
+function iconClass(t){ return 'ic ' + (TYPE_ICON[t]?'':'file ')+t; }
+function iconGlyph(t){ return TYPE_ICON[t] || '📄'; }
+
+/* ===== app-files.js ===== */
+/* ══════════════════════════════════════════════
+   xzm 管理器 · 文件浏览与操作
+   ══════════════════════════════════════════════ */
+
+/* ── 列目录 ── */
+async function loadDir(side, path, opts={}){
+  const list = $('list'+side);
+  list.classList.add('loading');
+  const r = await ctl('list', [path]);
+  list.classList.remove('loading');
+  if(!r.ok){ toast(r.error||'读取失败','err'); return; }
+  state.path[side] = r.path;
+  if(!opts.noHistory){
+    const h = state.history[side];
+    if(h[h.length-1] !== r.path) h.push(r.path);
+  }
+  state.entries[side] = sortEntries(r.entries || [], state.sortBy, state.sortDir);
+  state.selected[side] = null;
+  renderPane(side);
+}
+
+/* ── 排序：文件夹优先，其次按所选键（名称用自然排序，file2 < file10）── */
+function naturalCmp(a, b){
+  const re=/(\d+)|(\D+)/g;
+  const ax=String(a).toLowerCase().match(re)||[];
+  const bx=String(b).toLowerCase().match(re)||[];
+  const n=Math.max(ax.length,bx.length);
+  for(let i=0;i<n;i++){
+    const x=ax[i]||'', y=bx[i]||'';
+    if(x===y) continue;
+    const xn=/^\d+$/.test(x), yn=/^\d+$/.test(y);
+    if(xn&&yn){ const d=parseInt(x,10)-parseInt(y,10); if(d) return d; }
+    else return x<y?-1:1;
+  }
+  return 0;
+}
+const DIRTY={dir:0,link:0,archive:1,exec:2,script:3,image:4,video:5,audio:6,text:7,file:8};
+function sortEntries(list, by, dir){
+  const sign = dir==='desc' ? -1 : 1;
+  return list.slice().sort((a,b)=>{
+    // 文件夹永远在前（不受方向影响）
+    const ad=a.type==='dir'?0:1, bd=b.type==='dir'?0:1;
+    if(ad!==bd) return ad-bd;
+    let c;
+    if(by==='size') c=(a.size||0)-(b.size||0);
+    else if(by==='time') c=String(a.mtime||'').localeCompare(String(b.mtime||''));
+    else if(by==='type') c=(DIRTY[a.type]??9)-(DIRTY[b.type]??9) || naturalCmp(a.name,b.name);
+    else c=naturalCmp(a.name,b.name);
+    if(!c) c=naturalCmp(a.name,b.name);
+    return c*sign;
+  });
+}
+
+/* ── 渲染一栏 ── */
+function renderPane(side){
+  const list = $('list'+side);
+  const entries = state.entries[side];
+  $('path'+side).textContent = state.path[side];
+  $('count'+side).textContent = entries.length + ' 项';
+
+  if(!entries.length){
+    list.innerHTML = '<div class="empty">（空目录）</div>';
+    return;
+  }
+  list.innerHTML = entries.map(it=>{
+    const multi = state.multiMode && state.multi.has(state.path[side]+'/'+it.name);
+    const sel = state.selected[side]===it.name ? ' sel' : '';
+    return `<div class="row${sel}${multi?' multi':''}" data-name="${esc(it.name)}" data-type="${it.type}">
+      <div class="${iconClass(it.type)}">${iconGlyph(it.type)}</div>
+      <div class="row-body">
+        <div class="name">${esc(it.name)}</div>
+        <div class="meta">${it.type==='dir'?'':(esc(it.sizeText)+' · ')}${esc(it.mtime)}</div>
+      </div>
+      <button class="more ghost icon-btn" data-more="${esc(it.name)}">⋯</button>
+    </div>`;
+  }).join('');
+  updateCrumb();
+}
+
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>
+  ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+/* ── 面包屑 ── */
+function updateCrumb(){
+  const p = state.path[state.active];
+  const parts = p.split('/').filter(Boolean);
+  let acc = '';
+  let html = `<b data-go="/">/</b>`;
+  parts.forEach(part=>{
+    acc += '/' + part;
+    html += `<span class="slash">›</span><b data-go="${esc(acc)}">${esc(part)}</b>`;
+  });
+  const c = $('crumb'); c.innerHTML = html;
+  c.querySelectorAll('b').forEach(b=>b.addEventListener('click',()=>loadDir(state.active, b.dataset.go)));
+}
+
+/* ── 点击 / 长按绑定 ── */
+function bindPane(side){
+  const list = $('list'+side);
+  const pane = $('pane'+side);
+
+  list.addEventListener('click', e=>{
+    setActive(side);
+    const row = e.target.closest('.row');
+    if(!row) return;
+    const name = row.dataset.name;
+    // 点右侧 ⋯ → 打开菜单
+    if(e.target.closest('.more')){ openSheet(side, name); return; }
+    // 多选模式 → 勾选
+    if(state.multiMode){ toggleMulti(side, name); return; }
+    // 先选中
+    list.querySelectorAll('.row').forEach(r=>r.classList.remove('sel'));
+    row.classList.add('sel');
+    state.selected[side] = name;
+    // 单击直接进入目录 / 打开文件（MT 式）
+    openEntry(side, name, row.dataset.type);
+  });
+
+  // 长按（触屏）→ 菜单；避免长按后再触发 click 打开
+  let timer=null, moved=false, longPressed=false;
+  list.addEventListener('touchstart', e=>{
+    const row = e.target.closest('.row'); if(!row) return;
+    moved=false; longPressed=false;
+    timer = setTimeout(()=>{ if(!moved){ longPressed=true; openSheet(side, row.dataset.name); } }, 480);
+  }, {passive:true});
+  list.addEventListener('touchmove', ()=>{ moved=true; clearTimeout(timer); }, {passive:true});
+  ['touchend','touchcancel'].forEach(ev=>list.addEventListener(ev,()=>clearTimeout(timer),{passive:true}));
+  // 捕获阶段拦截：长按已弹菜单时吞掉这次 click
+  list.addEventListener('click', e=>{
+    if(longPressed){ longPressed=false; e.stopPropagation(); e.preventDefault(); }
+  }, true);
+
+  pane.querySelector('.pane-tag').addEventListener('click',()=>setActive(side));
+  bindSwitch(side);
+}
+
+function setActive(side){
+  state.active = side;
+  document.querySelectorAll('.pane').forEach(p=>p.classList.toggle('active', p.dataset.side===side));
+}
+
+/* ── 手机：切到另一栏 ── */
+function bindSwitch(side){
+  const btn = $('switch'+side);
+  if(!btn) return;
+  btn.addEventListener('click', e=>{
+    e.stopPropagation();
+    const other = otherSide(side);
+    setActive(other);
+    // 切栏后刷新，保证内容最新
+    loadDir(other, state.path[other], {noHistory:true});
+  });
+}
+
+/* ── 打开条目 ── */
+async function openEntry(side, name, type){
+  const p = state.path[side] + '/' + name;
+  if(type === 'dir'){ loadDir(side, p); return; }
+  if(type === 'exec'){
+    // 可执行文件：直接弹出运行方式（MT 式）
+    runDlg(p); return;
+  }
+  if(type === 'script'){
+    // 脚本：默认进编辑器，但长按/⋯可运行；这里也给运行选择
+    runDlg(p); return;
+  }
+  if(type === 'archive'){
+    // APK：点击优先询问安装；其余压缩包进入浏览
+    if(/\.(apk|xapk|apks)$/i.test(name)){
+      installApkConfirm(side, name, {replace:true});
+      return;
+    }
+    openArchive(side, name); return;
+  }
+  // 其他：查看属性
+  showProps(p);
+}
+
+/* ── 多选 ── */
+function toggleMulti(side, name){
+  const key = state.path[side] + '/' + name;
+  if(state.multi.has(key)) state.multi.delete(key); else state.multi.add(key);
+  renderPane(side);
+}
+
+/* ── 面板切换 ── */
+function switchPage(page){
+  const tabs = document.querySelectorAll('.tab');
+  tabs.forEach(t=>t.classList.toggle('on', t.dataset.page===page));
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));
+  const map = {file:'-file',term:'-term',book:'-book',set:'-set',arc:'-arc',apps:'-apps'};
+  const el = $('page'+map[page]);
+  if(el) el.classList.add('on');
+  if(page==='book') renderBookmarks();
+  if(page==='set') refreshSetInfo();
+  if(page==='apps') loadApps();
+}
+document.querySelectorAll('.tab').forEach(tab=>{
+  tab.addEventListener('click',()=>switchPage(tab.dataset.page));
+});
+
+/* ── 支持 URL hash 直达页面，如 #term (#终端) ── */
+/* ── 也支持开机/通知栏传入的标记文件 /data/local/tmp/.xzm_open_page ── */
+(function initHashPage(){
+  const alias = {term:'term','终端':'term',terminal:'term',
+                 file:'file','文件':'file',
+                 book:'book','书签':'book',
+                 set:'set','设置':'set'};
+  function normalize(s){
+    s = (s||'').replace(/^#/,'').trim().toLowerCase();
+    return alias[decodeURIComponent(s)] || null;
+  }
+  function go(page){
+    try{ switchPage(page); }catch(e){}
+    // 终端页：#term 直达时自动拉起终端（ttyd）
+    if(page==='term' && typeof startTerminal==='function'){
+      setTimeout(()=>{ try{ startTerminal(); }catch(e){} }, 400);
+    }
+  }
+  function applyHash(){
+    const page = normalize(location.hash);
+    if(page){
+      if(document.readyState==='complete') setTimeout(()=>go(page),0);
+      else window.addEventListener('load',()=>go(page));
+    }
+  }
+  // 读取标记文件（通知栏「终端」按钮写入 App 私有目录），有则跳转并清除
+  async function applyMarker(){
+    try{
+      if(typeof sh!=='function') return false;
+      const paths = [
+        '/data/data/com.xzm.launcher/files/xzm_open_page',
+        '/data/user/0/com.xzm.launcher/files/xzm_open_page',
+        '/data/local/tmp/.xzm_open_page'
+      ];
+      for(const p of paths){
+        const r = await sh('cat ' + p + ' 2>/dev/null');
+        const page = normalize((r && r.out || '').trim());
+        if(page){
+          sh('rm -f ' + p + ' >/dev/null 2>&1');
+          const doGo=()=>{
+            go(page);
+            if(page==='term' && typeof startTerminal==='function'){
+              setTimeout(()=>{ try{ startTerminal(); }catch(e){} }, 300);
+            }
+          };
+          if(document.readyState==='complete') setTimeout(doGo,50); else window.addEventListener('load',doGo);
+          return true;
+        }
+      }
+    }catch(e){}
+    return false;
+  }
+  applyHash();
+  window.addEventListener('hashchange', applyHash);
+
+  // 标记文件轮询：覆盖「WebUI 已在前台/存活时再次点击通知」的场景
+  // （SukiSU 复用 WebUIActivity，onNewIntent 不 reload，只能靠 JS 主动轮询）
+  setInterval(()=>{ if(document.visibilityState==='visible') applyMarker(); }, 1500);
+  // 从后台切回前台时立即检查一次
+  document.addEventListener('visibilitychange', ()=>{
+    if(document.visibilityState==='visible') applyMarker();
+  });
+  // ksu 桥接就绪后首次读取
+  setTimeout(applyMarker, 400);
+})();
+
+/* ── 排序菜单 ── */
+const SORT_LABEL = { name:'名称', size:'大小', time:'修改时间', type:'类型' };
+let _sortMenuEl = null;
+function closeSortMenu(){ if(_sortMenuEl){ _sortMenuEl.remove(); _sortMenuEl=null; } }
+function openSortMenu(side, btn){
+  closeSortMenu();
+  const cur = { by: state.sortBy, dir: state.sortDir };
+  const el = document.createElement('div');
+  el.className = 'sort-menu';
+  const mkItem = (by)=>{
+    const on = cur.by===by;
+    const d = document.createElement('div');
+    d.className = 'si'+(on?' on':'');
+    d.innerHTML = `<span>${SORT_LABEL[by]}</span>` + (on?`<span class="arw">${cur.dir==='asc'?'↑ 升序':'↓ 降序'}</span>`:'');
+    d.onclick = ()=>{
+      if(state.sortBy===by){ state.sortDir = state.sortDir==='asc'?'desc':'asc'; }
+      else { state.sortBy = by; state.sortDir = 'asc'; }
+      applySort(side); closeSortMenu();
+    };
+    return d;
+  };
+  ['name','size','time','type'].forEach(by=> el.appendChild(mkItem(by)));
+  const sep = document.createElement('div'); sep.className='sep2'; el.appendChild(sep);
+  const flip = document.createElement('div');
+  flip.className='si';
+  flip.innerHTML = `<span>${cur.dir==='asc'?'改为降序 ↓':'改为升序 ↑'}</span>`;
+  flip.onclick = ()=>{ state.sortDir = state.sortDir==='asc'?'desc':'asc'; applySort(side); closeSortMenu(); };
+  el.appendChild(flip);
+
+  document.body.appendChild(el);
+  const r = btn.getBoundingClientRect();
+  const w = el.offsetWidth, h = el.offsetHeight;
+  let left = Math.min(r.right - w, window.innerWidth - w - 8);
+  let top = r.bottom + 6;
+  if(top + h > window.innerHeight - 8) top = r.top - h - 6;
+  el.style.left = Math.max(8,left)+'px';
+  el.style.top = Math.max(8,top)+'px';
+  _sortMenuEl = el;
+  setTimeout(()=>document.addEventListener('click', onDocCloseSort, {once:true}),0);
+}
+function onDocCloseSort(e){ if(_sortMenuEl && !_sortMenuEl.contains(e.target)) closeSortMenu(); }
+
+/* 重新排序某一栏（或两栏），不重新请求 */
+function applySort(side){
+  const sides = side ? [side] : ['A','B'];
+  sides.forEach(sd=>{
+    if(!state.entries[sd]) return;
+    // 保留原始顺序用于排序基准？直接对当前 entries 排序即可（已含全部）
+    state.entries[sd] = sortEntries(state.entries[sd], state.sortBy, state.sortDir);
+    renderPane(sd);
+  });
+  const b = $('sortBtn'+ (side||'A'));
+  if(b) b.classList.add('on');
+}
+
+/* ===== app-actions.js ===== */
+/* ══════════════════════════════════════════════
+   xzm 管理器 · 长按菜单与操作
+   ══════════════════════════════════════════════ */
+
+let sheetCtx = { side:'A', name:null };
+
+function openSheet(side, name){
+  sheetCtx = { side, name };
+  const p = state.path[side] + '/' + name;
+  const it = state.entries[side].find(x=>x.name===name) || {};
+  $('sheetTitle').firstChild.textContent = name;
+  $('sheetSub').textContent = p;
+
+  const isDir = it.type==='dir';
+  const isArchive = it.type==='archive';
+  const isText = it.type==='text' || it.type==='script';
+
+  const groups = [];
+
+  // 基础操作
+  groups.push(['基础操作', [
+    ['⧉','复制到对栏','blue',()=>opCopy(side,name)],
+    ['➦','移动到对栏','blue',()=>opMove(side,name)],
+    ['✎','重命名','amber',()=>opRename(side,name)],
+    ['🗑','删除','red',()=>opDelete(side,name)],
+    ['📋','复制路径','',()=>{ navigator.clipboard?.writeText(p); toast('已复制路径','ok'); }],
+    ['🔖','加书签','amber',()=>addBookmark(p)],
+    ['👁','属性','green',()=>showProps(p)],
+    ['🔐','权限','green',()=>opPerms(p)],
+  ]]);
+
+  // 打开/查看
+  const openItems = [];
+  if(isDir) openItems.push(['📂','进入','green',()=>loadDir(side,p)]);
+  if(isText) openItems.push(['📝','文本编辑','green',()=>openEditor(p)]);
+  // 运行（可执行 / 脚本）—— MT 管理器式
+  if(it.type==='exec' || it.type==='script'){
+    openItems.push(['🚀','以 Root 运行','green',()=>runFile(p)]);
+    openItems.push(['▶️','运行（带参数）','amber',()=>inputDlg('运行参数','为「'+name+'」输入命令行参数（可留空）','',(v)=>runFile(p,v))]);
+    openItems.push(['⌨️','在终端中运行','blue',()=>openInTerminal(p)]);
+  }
+  if(!isDir) openItems.push(['🎯','打开方式','green',()=>toast('v1.1：调用系统打开方式')]);
+  if(!isDir) openItems.push(['#️⃣','文件校验','green',()=>showProps(p)]);
+  if(openItems.length) groups.push(['打开 / 查看', openItems]);
+
+  // APK 安装
+  if(!isDir && /\.(apk|xapk|apks)$/i.test(name)){
+    groups.push(['安装应用', [
+      ['📲','安装','green',()=>installApkConfirm(side,name,{})],
+      ['🔁','覆盖安装','amber',()=>installApkConfirm(side,name,{replace:true})],
+      ['🔑','安装并授权','green',()=>installApkConfirm(side,name,{replace:true,grant:true})],
+      ['⬇️','覆盖+允许降级+授权','blue',()=>installApkConfirm(side,name,{replace:true,downgrade:true,grant:true})],
+    ]]);
+  }
+
+  // 压缩包
+  if(isArchive){
+    groups.push(['压缩包', [
+      ['👁','预览内容','green',()=>archivePreview(side,name)],
+      ['📤','解压到对栏','amber',()=>opExtract(side,name,'opposite')],
+      ['📂','解压到…','amber',()=>opExtract(side,name,'choose')],
+      ['🗂️','解压到当前目录','amber',()=>opExtract(side,name,'here')],
+    ]]);
+  } else {
+    groups.push(['压缩包', [
+      ['🗜️','压缩为 ZIP','amber',()=>opCompress(side,[name])],
+    ]]);
+  }
+
+  // 权限/属主
+  groups.push(['权限 / 属主', [
+    ['🔐','修改权限','blue',()=>opPerms(p)],
+    ['👤','所有者/组','blue',()=>opChown(p)],
+  ]]);
+
+  $('sheetActs').innerHTML = groups.map(([gname, items])=>
+    `<div class="grp"><div class="grp-name">${gname}</div><div class="acts">` +
+    items.map((it,i)=>`<button class="act ${it[2]}" data-g="${esc(gname)}" data-i="${i}">
+      <span class="ai">${it[0]}</span>${esc(it[1])}</button>`).join('') +
+    `</div></div>`
+  ).join('');
+
+  // 绑定
+  const flat = {};
+  groups.forEach(([g,items])=>items.forEach((it,i)=>flat[g+'_'+i]=it[3]));
+  $('sheetActs').querySelectorAll('.act').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const fn = flat[btn.dataset.g+'_'+btn.dataset.i];
+      closeSheet(); if(fn) fn();
+    });
+  });
+
+  $('sheetBk').classList.add('on');
+}
+function closeSheet(){ $('sheetBk').classList.remove('on'); }
+$('sheetBk').addEventListener('click', e=>{ if(e.target===$('sheetBk')) closeSheet(); });
+
+/* ── 复制 / 移动 ── */
+function otherSide(side){ return side==='A'?'B':'A'; }
+
+async function opCopy(side, name){
+  const dst = state.path[otherSide(side)];
+  const src = state.path[side] + '/' + name;
+  const r = await ctl('copy', [src, dst, '0']);
+  if(r.ok){ toast('已复制到 '+dst, 'ok'); refreshBoth(); }
+  else if(r.conflict){
+    confirmDlg('目标已存在', `「${name}」在目标栏已存在，是否覆盖？`, ()=>{
+      ctl('copy',[src,dst,'1']).then(r2=>{ if(r2.ok){toast('已覆盖复制','ok');refreshBoth();} else toast(r2.error,'err'); });
+    });
+  } else toast(r.error||'复制失败','err');
+}
+
+async function opMove(side, name){
+  const dst = state.path[otherSide(side)];
+  const src = state.path[side] + '/' + name;
+  const r = await ctl('move', [src, dst, '0']);
+  if(r.ok){ toast('已移动到 '+dst, 'ok'); refreshBoth(); }
+  else if(r.conflict){
+    confirmDlg('目标已存在', `「${name}」在目标栏已存在，是否覆盖？`, ()=>{
+      ctl('move',[src,dst,'1']).then(r2=>{ if(r2.ok){toast('已覆盖移动','ok');refreshBoth();} else toast(r2.error,'err'); });
+    });
+  } else toast(r.error||'移动失败','err');
+}
+
+/* ── 重命名 ── */
+function opRename(side, name){
+  inputDlg('重命名', '输入新名称', name, async val=>{
+    if(!val || val===name) return;
+    const src = state.path[side]+'/'+name;
+    const dst = state.path[side]+'/'+val;
+    const r = await ctl('rename',[src,dst]);
+    if(r.ok){ toast('已重命名','ok'); refreshBoth(); } else toast(r.error,'err');
+  });
+}
+
+/* ── 解压 ── */
+async function opExtract(side, name, mode){
+  const src = state.path[side]+'/'+name;
+  let dest;
+  if(mode==='here') dest = state.path[side];
+  else if(mode==='opposite') dest = state.path[otherSide(side)];
+  else dest = null;
+
+  if(mode==='choose'){
+    const def = state.path[otherSide(side)];
+    return inputDlg('解压到…', '输入目标目录路径', def, (v)=>{
+      if(!v) return;
+      doExtract(src, v, name);
+    });
+  }
+  doExtract(src, dest, name);
+}
+
+async function doExtract(src, dest, name){
+  busy(true); toast('正在解压…');
+  let r;
+  try{
+    r = await ctl('extract',[src, dest]);
+  }catch(e){ busy(false); showRunResult('解压失败', String(e), false); return; }
+  busy(false);
+  if(r && r.ok){
+    toast('解压完成','ok');
+    refreshBoth();
+    const log = r.output ? ('\n\n'+r.output) : '';
+    showRunResult('解压完成 ✓', '已解压到：\n'+(r.dest||dest)+log, true);
+  } else {
+    showRunResult('解压失败', (r && (r.error||r.output)) || '后端无响应', false);
+  }
+}
+
+/* ── 压缩包预览 ── */
+/* 长按压缩包 → 预览内容：列出包内条目，点文本条目可看内容、可单解 */
+async function archivePreview(side, name){
+  const src = state.path[side]+'/'+name;
+  busy(true); toast('读取压缩包…');
+  let r;
+  try{ r = await ctl('archive-list',[src]); }
+  catch(e){ busy(false); showRunResult('预览失败', String(e), false); return; }
+  busy(false);
+  if(!r || !r.ok){ showRunResult('预览失败', (r&&r.error)||'后端无响应', false); return; }
+
+  const items = r.items||[];
+  const dirs = items.filter(i=>i.d).length;
+  const total = items.reduce((a,i)=>a+(i.s||0),0);
+  const head = `${items.length} 个条目（${dirs} 目录） · 原始大小 ${fmtSize(total)}`;
+
+  $('dlgMark').textContent='🗜️';
+  $('dlgTitle').textContent = name;
+  $('dlgMsg').innerHTML =
+    `<div class="arc-head">${esc(head)}</div>`+
+    `<div class="arc-list">${ items.length?items.map((it,i)=>{
+        const nm = it.d ? it.n.replace(/\/$/,'') : it.n;
+        const parts = nm.split('/');
+        const fn = parts.pop(); const pad = parts.length;
+        return `<div class="arc-row" data-i="${i}">
+          <span class="arc-ico">${it.d?'📁':fileEmoji(fn)}</span>
+          <span class="arc-name" style="padding-left:${pad*10}px">${esc(fn)}${it.d?'/':''}</span>
+          <span class="arc-size">${it.d?'':esc(fmtSize(it.s||0))}</span>
+          <button class="arc-out" data-i="${i}" title="解出此文件">⤓ 解出</button>
+        </div>`;
+      }).join('') : '<div class="arc-empty">（空压缩包）</div>'
+    }</div>`;
+  $('dlgInput').style.display='none';
+  $('dlgCheckWrap').style.display='none';
+  $('dlgCancel').style.display='none';
+  $('dlgOk').textContent='关闭';
+  $('dlgOk').className='primary';
+  showDlg(()=>{});
+
+  $('dlgMsg').querySelectorAll('.arc-row').forEach(row=>{
+    const it = items[+row.dataset.i];
+    const outBtn = row.querySelector('.arc-out');
+    // 点行 → 预览（目录略过）
+    row.addEventListener('click',(e)=>{
+      if(e.target.closest('.arc-out')) return;
+      if(it.d) return;
+      archivePreviewFile(src, it.n, name);
+    });
+    // 点「解出」 → 解到对栏
+    if(outBtn){
+      outBtn.addEventListener('click',(e)=>{
+        e.stopPropagation();
+        archiveExtractOne(side, name, src, it.n);
+      });
+    }
+  });
+}
+
+/* 从预览里解出单个条目到对栏 */
+async function archiveExtractOne(side, arcName, src, entry){
+  const dest = (typeof state!=='undefined' && state.path) ? state.path[otherSide(side)] : null;
+  toast('正在解出…');
+  let r;
+  try{ r = await ctl('archive-extract-one',[src, btoa(unescape(encodeURIComponent(entry))), dest||'']); }
+  catch(e){ showRunResult('解出失败', String(e), false); return; }
+  if(r && r.ok){
+    toast('已解出到对栏','ok');
+    if(typeof refreshBoth==='function') refreshBoth();
+  } else {
+    showRunResult('解出失败', (r&&(r.error||r.output))||'后端无响应', false);
+  }
+}
+
+/* ══════════════════════════════════════════════
+   压缩包内部浏览（点击压缩包直接进入）
+   ══════════════════════════════════════════════ */
+let arcCtx = { side:'A', name:null, path:'', src:null, items:[] };
+
+async function openArchive(side, name){
+  const src = state.path[side]+'/'+name;
+  arcCtx = { side, name, path:'', src, items:[] };
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on', t.dataset.page==='arc'));
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));
+  const pg = document.getElementById('page-arc'); if(pg) pg.classList.add('on');
+  $('arcPageName').textContent = name;
+  $('arcPageList').innerHTML = '<div class="arc-empty">读取中…</div>';
+  busy(true);
+  let r;
+  try{ r = await ctl('archive-list',[src]); }
+  catch(e){ busy(false); $('arcPageList').innerHTML = '<div class="arc-empty">读取失败：'+esc(String(e))+'</div>'; return; }
+  busy(false);
+  if(!r || !r.ok){ $('arcPageList').innerHTML = '<div class="arc-empty">'+esc((r&&r.error)||'无法读取压缩包')+'</div>'; return; }
+  arcCtx.items = r.items||[];
+  arcRender();
+}
+
+function arcRender(){
+  const {items, path} = arcCtx;
+  const prefix = path ? (path.replace(/\/$/,'')+'/') : '';
+  const seen = {};
+  const rows = [];
+  items.forEach(it=>{
+    let n = it.n;
+    if(it.d) n = n.replace(/\/$/,'');
+    if(prefix && !n.startsWith(prefix)) return;
+    let rest = n.slice(prefix.length);
+    if(rest==='') return;
+    const slash = rest.indexOf('/');
+    if(slash>=0){
+      const dn = rest.slice(0,slash);
+      if(seen['d:'+dn]) return;
+      seen['d:'+dn]=1;
+      rows.push({name:dn, dir:true, full:prefix+dn+'/', size:0});
+    } else {
+      if(seen['f:'+rest]) return;
+      seen['f:'+rest]=1;
+      rows.push({name:rest, dir:false, full:prefix+rest, size:it.s||0});
+    }
+  });
+  rows.sort((a,b)=> (b.dir-a.dir) || a.name.localeCompare(b.name,'zh'));
+
+  $('arcPageCrumb').textContent = prefix ? ('/'+prefix) : '（根目录）';
+  $('arcBack').style.display = path ? '' : 'none';
+
+  if(!rows.length){
+    $('arcPageList').innerHTML = '<div class="arc-empty">（此目录为空）</div>';
+    return;
+  }
+  $('arcPageList').innerHTML = rows.map((r,i)=>
+    `<div class="arc-item" data-i="${i}">
+      <span class="ai">${r.dir?'📁':fileEmoji(r.name)}</span>
+      <span class="an">${esc(r.name)}${r.dir?'/':''}</span>
+      ${r.dir?'':`<span class="as">${esc(fmtSize(r.size))}</span>
+      <button class="arc-out" data-out="${esc(r.full)}">⤓ 解出</button>`}
+    </div>`
+  ).join('');
+
+  $('arcPageList').querySelectorAll('.arc-item').forEach(el=>{
+    const r = rows[+el.dataset.i];
+    el.addEventListener('click',(e)=>{
+      if(e.target.closest('.arc-out')) return;
+      if(r.dir){ arcCtx.path = r.full.replace(/\/$/,'')+'/'; arcRender(); }
+      else { archivePreviewFile(arcCtx.src, r.full, arcCtx.name); }
+    });
+    const ob = el.querySelector('.arc-out');
+    if(ob) ob.addEventListener('click',(e)=>{ e.stopPropagation(); archiveExtractOne(arcCtx.side, arcCtx.name, arcCtx.src, r.full); });
+  });
+}
+
+function arcUp(){
+  let p = arcCtx.path.replace(/\/$/,'');
+  const i = p.lastIndexOf('/');
+  p = (i >= 0) ? p.slice(0, i) : '';
+  arcCtx.path = p ? (p+'/') : '';
+  arcRender();
+}
+
+function arcExit(){
+  switchPage('file');
+}
+
+/* ══════════════════════════════════════════════
+   应用管理（已安装应用列表 / 卸载）
+   ══════════════════════════════════════════════ */
+let appsCache = [];
+
+async function loadApps(){
+  const list = $('appList'); if(!list) return;
+  list.innerHTML = '<div class="arc-empty">读取中…</div>';
+  let r;
+  try{ r = await ctl('list-apps-full',['72']); }
+  catch(e){ list.innerHTML = '<div class="arc-empty">读取失败：'+esc(String(e))+'</div>'; return; }
+  if(!r || !r.ok){
+    // 退化到仅包名
+    try{ r = await ctl('list-apps',[]); }catch(e){}
+    if(r && r.ok) r.apps = (r.apps||[]).map(a=>({pkg: (a.pkg||a), label:'', ver:'', icon:''}));
+  }
+  if(!r || !r.ok){ list.innerHTML = '<div class="arc-empty">'+esc((r&&r.error)||'无法获取应用列表')+'</div>'; return; }
+  appsCache = (r.apps||[]).map(a=> typeof a==='string'? {pkg:a,label:'',icon:''} : a);
+  appsCache.sort((a,b)=>(a.label||a.pkg).localeCompare(b.label||b.pkg,'zh'));
+  $('appCount').textContent = appsCache.length + ' 个';
+  renderApps($('appSearch') ? $('appSearch').value.trim().toLowerCase() : '');
+}
+
+function renderApps(filter){
+  const list = $('appList'); if(!list) return;
+  let rows = appsCache;
+  if(filter) rows = rows.filter(a=>(a.pkg||'').toLowerCase().includes(filter) || (a.label||'').toLowerCase().includes(filter));
+  if(!rows.length){ list.innerHTML = '<div class="arc-empty">（无匹配应用）</div>'; return; }
+  list.innerHTML = rows.map(a=>{
+    const ico = a.icon ? `<img class="app-ico" src="${a.icon}" alt="">` : '<span class="app-ico ph">📦</span>';
+    return `<div class="arc-item app-row" data-pkg="${esc(a.pkg)}">
+      ${ico}
+      <span class="app-meta">
+        <span class="app-name">${esc(a.label||a.pkg)}</span>
+        <span class="app-pkg">${esc(a.pkg)}</span>
+      </span>
+      <button class="arc-out app-op" data-op="info">ℹ️</button>
+      <button class="arc-out app-op" data-op="uninstall">🗑</button>
+    </div>`;
+  }).join('');
+  list.querySelectorAll('.arc-item').forEach(el=>{
+    const pkg = el.dataset.pkg;
+    el.querySelector('[data-op="info"]').addEventListener('click',e=>{ e.stopPropagation(); showAppInfo(pkg); });
+    el.querySelector('[data-op="uninstall"]').addEventListener('click',e=>{ e.stopPropagation(); uninstallApp(pkg); });
+    el.addEventListener('click',()=>showAppInfo(pkg));
+  });
+}
+
+async function showAppInfo(pkg){
+  busy(true);
+  let r;
+  try{ r = await ctl('app-info',[pkg]); }
+  catch(e){ busy(false); showRunResult('读取失败', String(e), false); return; }
+  busy(false);
+  if(!r || !r.ok){ showRunResult('读取失败', (r&&r.error)||'无响应', false); return; }
+  const size = r.size? fmtSize(r.size) : '未知';
+  const body = '包名：'+pkg+'\n版本：'+(r.ver||'未知')+'\n大小：'+size+'\n路径：'+(r.path||'—');
+  confirmDlg('应用详情', body, ()=>uninstallApp(pkg), '🗑 卸载');
+}
+
+function uninstallApp(pkg){
+  confirmDlg('卸载应用', '确定卸载「'+pkg+'」？\n此操作不可撤销。', async()=>{
+    busy(true);
+    let r;
+    try{ r = await ctl('uninstall-apk',[pkg]); }
+    catch(e){ busy(false); showRunResult('卸载失败', String(e), false); return; }
+    busy(false);
+    if(r && r.ok){ toast('已卸载','ok'); showRunResult('卸载成功 ✓', pkg+'\n\n'+(r.output||'Success'), true); loadApps(); }
+    else { showRunResult('卸载失败', (r&&(r.error? (r.error+'\n\n'+(r.output||'')) : r.output))||'无响应', false); }
+  }, '确认卸载');
+}
+
+// 应用页绑定
+(function bindAppsPage(){
+  const rf=document.getElementById('appRefresh'); if(rf) rf.addEventListener('click', loadApps);
+  const sr=document.getElementById('appSearch');
+  if(sr) sr.addEventListener('input', ()=>renderApps(sr.value.trim().toLowerCase()));
+})();
+
+/* ══════════════════════════════════════════════
+   安装 APK
+   ══════════════════════════════════════════════ */
+// 安装前先读取 APK 信息并确认
+async function installApkConfirm(side, name, flags){
+  const apk = state.path[side]+'/'+name;
+  busy(true);
+  let info = null;
+  try{ info = await ctl('apk-info',[apk]); }catch(e){}
+  busy(false);
+  let detail = '';
+  if(info && info.ok && info.pkg){
+    detail = '包名：'+info.pkg+'\n版本：'+(info.ver||'未知')+(info.code?(' ('+info.code+')'):'')+(info.minSdk?('\n最低 SDK：'+info.minSdk):'');
+  } else {
+    detail = '（无法读取包信息）';
+  }
+  const act = flags.replace ? '覆盖安装' : '安装';
+  confirmDlg('安装应用', detail+'\n\n是否'+act+'「'+name+'」？', ()=>installApk(side,name,flags), '📲 '+act);
+}
+
+async function installApk(side, name, flags){
+  const apk = state.path[side]+'/'+name;
+  const fl = [];
+  if(flags.replace) fl.push('replace');
+  if(flags.downgrade) fl.push('downgrade');
+  if(flags.grant) fl.push('grant');
+  const label = flags.replace ? (flags.grant ? (flags.downgrade?'覆盖+降级+授权':'覆盖安装并授权') : '覆盖安装') : '安装';
+  busy(true); toast('正在'+label+'…');
+  let r;
+  try{
+    const b64 = btoa(unescape(encodeURIComponent(fl.join(','))));
+    r = await ctl('install-apk',[apk, b64]);
+  }catch(e){ busy(false); showRunResult('安装失败', String(e), false); return; }
+  busy(false);
+  if(r && r.ok){
+    toast('安装成功','ok');
+    showRunResult('安装成功 ✓', (name+'\n\n'+(r.output||'Success')), true);
+  } else {
+    showRunResult('安装失败', (r && (r.error? (r.error+'\n\n'+(r.output||'')) : r.output)) || '后端无响应', false);
+  }
+}
+
+// 绑定压缩包浏览页按钮
+(function bindArcPage(){
+  const b1=document.getElementById('arcBack'); if(b1) b1.addEventListener('click', arcUp);
+  const b2=document.getElementById('arcClose'); if(b2) b2.addEventListener('click', arcExit);
+  const b3=document.getElementById('arcExtractAll');
+  if(b3) b3.addEventListener('click', ()=>{ if(arcCtx.src) opExtract(arcCtx.side, arcCtx.name, 'opposite'); });
+  const b4=document.getElementById('arcExtractHere');
+  if(b4) b4.addEventListener('click', ()=>{ if(arcCtx.src) opExtract(arcCtx.side, arcCtx.name, 'here'); });
+})();
+
+async function archivePreviewFile(src, entry, arcName){
+  let r;
+  try{ r = await ctl('archive-read',[src, btoa(unescape(encodeURIComponent(entry)))]); }
+  catch(e){ showRunResult('读取失败', String(e), false); return; }
+  if(!r || !r.ok){
+    showRunResult('无法预览', (r&&(r.error||r.output))||'该文件无法预览', false);
+    return;
+  }
+  let text='';
+  try{ text = decodeURIComponent(escape(atob(r.b64))); }catch(e){ text=''; }
+  let printable = 0, tot = Math.min(text.length, 500);
+  for(let i=0;i<tot;i++){ const c=text.charCodeAt(i); if(c===9||c===10||c===13||(c>=32&&c<127)||c>127) printable++; }
+  const looksText = tot>0 && printable/tot > 0.85;
+
+  if(!looksText){
+    showRunResult('二进制文件', `「${entry}」\n大小：${fmtSize(r.size||0)}\n\n不是文本文件，无法直接预览。\n可用「解压」后查看。`, false);
+    return;
+  }
+  showRunResult('👁 '+entry, text, true);
+}
+
+function fileEmoji(fn){
+  const l=(fn||'').toLowerCase();
+  if(/\.(png|jpg|jpeg|gif|webp|bmp|svg|heic)$/.test(l)) return '🖼️';
+  if(/\.(mp4|mkv|avi|mov|webm|3gp)$/.test(l)) return '🎬';
+  if(/\.(mp3|flac|wav|ogg|m4a|aac)$/.test(l)) return '🎵';
+  if(/\.(sh|py|js|lua|rb|pl)$/.test(l)) return '📜';
+  if(/\.(zip|rar|7z|tar|gz|tgz|bz2|xz|apk|jar)$/.test(l)) return '🗜️';
+  if(/\.(txt|md|json|xml|conf|ini|log|prop|yml|yaml|html|css)$/.test(l)) return '📄';
+  return '📄';
+}
+function fmtSize(b){
+  b=+b||0;
+  if(b<1024) return b+' B';
+  if(b<1048576) return (b/1024).toFixed(2)+' KB';
+  if(b<1073741824) return (b/1048576).toFixed(2)+' MB';
+  return (b/1073741824).toFixed(2)+' GB';
+}
+
+/* ── 压缩 ── */
+async function opCompress(side, names){
+  const dir = state.path[side];
+  const list = (names||[]).map(n=>dir+'/'+n);
+  if(!list.length) return;
+  const base = names.length===1 ? names[0].replace(/\.[^.]+$/,'') : (dir.split('/').filter(Boolean).pop()||'archive');
+  const defZip = dir+'/'+base+'.zip';
+  inputDlg('压缩为 ZIP', '输出压缩包路径', defZip, async (out)=>{
+    if(!out) return;
+    busy(true); toast('正在压缩…');
+    let r;
+    try{
+      const b64 = btoa(unescape(encodeURIComponent(list.join('\n'))));
+      r = await ctl('compress',[out, b64]);
+    }catch(e){ busy(false); showRunResult('压缩失败', String(e), false); return; }
+    busy(false);
+    if(r && r.ok){
+      toast('压缩完成','ok'); refreshBoth();
+      showRunResult('压缩完成 ✓', '已生成：\n'+(r.out||out)+(r.output?('\n\n'+r.output):''), true);
+    } else {
+      showRunResult('压缩失败', (r && (r.error||r.output)) || '后端无响应', false);
+    }
+  });
+}
+
+/* ── 删除 ── */
+function opDelete(side, name){
+  const p = state.path[side]+'/'+name;
+  confirmDlg('删除确认', `确定删除「${name}」？此操作不可撤销。`, async ()=>{
+    const r = await ctl('delete',[p,'1']);
+    if(r.ok){ toast('已删除','ok'); refreshBoth(); } else toast(r.error,'err');
+  }, '删除');
+}
+
+/* ── 权限 ── */
+function opPerms(path){
+  inputDlg('修改权限', '输入八进制权限（如 755 / 644）', '755', async val=>{
+    if(!/^[0-7]{3,4}$/.test(val)){ toast('权限格式不正确','err'); return; }
+    const r = await ctl('chmod',[path,val,'0']);
+    if(r.ok){ toast('权限已修改为 '+val,'ok'); } else toast(r.error,'err');
+  });
+}
+
+/* ── 属主 ── */
+function opChown(path){
+  inputDlg('修改属主', '输入 用户:组（如 0:0）', '0:0', async val=>{
+    const r = await ctl('chown',[path,val,'0']);
+    if(r.ok){ toast('属主已修改','ok'); } else toast(r.error,'err');
+  });
+}
+
+/* ── 属性 ── */
+async function showProps(path){
+  busy(true);
+  const r = await ctl('stat',[path]);
+  busy(false);
+  if(!r.ok){ toast(r.error,'err'); return; }
+  const rows = [
+    ['路径', r.path], ['权限', r.perms], ['大小', r.sizeText],
+    ['修改时间', r.mtime], ['属主', r.owner], ['MD5', r.md5||'—'],
+  ];
+  $('dlgMark').textContent = 'ℹ️';
+  $('dlgTitle').textContent = '属性';
+  $('dlgMsg').innerHTML = rows.map(([k,v])=>
+    `<div style="display:grid;grid-template-columns:76px 1fr;gap:8px;padding:6px 0;border-bottom:1px solid var(--line)">
+      <span style="color:var(--muted)">${k}</span>
+      <span style="font-family:var(--mono);word-break:break-all">${esc(v)}</span></div>`).join('');
+  $('dlgInput').style.display='none';
+  $('dlgCheckWrap').style.display='none';
+  $('dlgCancel').style.display='none';
+  $('dlgOk').textContent = '关闭';
+  showDlg(()=>{});
+}
+
+/* ══ 通用对话框 ══ */
+let dlgCb = null;
+function showDlg(cb){ dlgCb = cb; $('dlgBk').classList.add('on'); }
+function closeDlg(){ $('dlgBk').classList.remove('on'); dlgCb=null; }
+
+function confirmDlg(title, msg, cb, okTxt='确定'){
+  $('dlgMark').textContent = '⚠️';
+  $('dlgTitle').textContent = title;
+  $('dlgMsg').textContent = msg;
+  $('dlgInput').style.display='none';
+  $('dlgCheckWrap').style.display='none';
+  $('dlgCancel').style.display=''; $('dlgCancel').textContent='取消';
+  $('dlgOk').textContent = okTxt;
+  $('dlgOk').className = okTxt==='删除' ? 'danger' : 'primary';
+  showDlg(cb);
+}
+
+function inputDlg(title, msg, defVal, cb){
+  $('dlgMark').textContent = '✎';
+  $('dlgTitle').textContent = title;
+  $('dlgMsg').textContent = msg;
+  const inp = $('dlgInput');
+  inp.style.display='block'; inp.value = defVal||'';
+  $('dlgCheckWrap').style.display='none';
+  $('dlgCancel').style.display=''; $('dlgCancel').textContent='取消';
+  $('dlgOk').textContent='确定'; $('dlgOk').className='primary';
+  showDlg(()=>cb(inp.value.trim()));
+  setTimeout(()=>inp.focus(),50);
+}
+
+$('dlgOk').addEventListener('click',()=>{ const cb=dlgCb; closeDlg(); if(cb) cb(); });
+$('dlgCancel').addEventListener('click', closeDlg);
+$('dlgBk').addEventListener('click', e=>{ if(e.target===$('dlgBk')) closeDlg(); });
+
+/* ── 刷新 ── */
+function refreshBoth(){
+  loadDir('A', state.path.A, {noHistory:true});
+  loadDir('B', state.path.B, {noHistory:true});
+}
+
+/* ── 排序按钮绑定 ── */
+['A','B'].forEach(sd=>{
+  const b=$('sortBtn'+sd);
+  if(b) b.addEventListener('click', e=>{ e.stopPropagation(); openSortMenu(sd, b); });
+});
+
+/* ── 工具栏绑定 ── */
+$('btnRefresh').addEventListener('click', ()=>loadDir(state.active, state.path[state.active], {noHistory:true}));
+$('btnUp').addEventListener('click', ()=>{
+  const p = state.path[state.active];
+  if(p==='/') return;
+  const parent = p.replace(/\/[^/]+\/?$/, '') || '/';
+  loadDir(state.active, parent);
+});
+$('btnBack').addEventListener('click', ()=>{
+  const h = state.history[state.active];
+  if(h.length>1){ h.pop(); loadDir(state.active, h[h.length-1], {noHistory:true}); }
+});
+$('btnSync').addEventListener('click', ()=>{
+  const o = otherSide(state.active);
+  // 把当前栏路径同步到对栏；手机单栏模式下自动切过去，让用户看到结果
+  loadDir(o, state.path[state.active]).then(()=>{
+    if(window.matchMedia && window.matchMedia('(max-width:900px)').matches){
+      setActive(o);
+      toast('已同步并切到' + (o==='A'?'左栏':'右栏'), 'ok');
+    } else {
+      toast('已同步到' + (o==='A'?'左栏':'右栏'), 'ok');
+    }
+  });
+});
+$('btnEditPath').addEventListener('click', ()=>{
+  const inp = $('pathInput');
+  inp.style.display='block'; inp.value = state.path[state.active];
+  $('crumb').style.display='none';
+  inp.focus();
+});
+$('pathInput').addEventListener('keydown', e=>{
+  if(e.key==='Enter'){
+    loadDir(state.active, $('pathInput').value.trim() || '/');
+    $('pathInput').style.display='none'; $('crumb').style.display='flex';
+  } else if(e.key==='Escape'){
+    $('pathInput').style.display='none'; $('crumb').style.display='flex';
+  }
+});
+$('btnNew').addEventListener('click', ()=>{
+  $('dlgMark').textContent='＋'; $('dlgTitle').textContent='新建';
+  $('dlgMsg').textContent='输入名称。以 / 结尾创建文件夹。';
+  const inp=$('dlgInput'); inp.style.display='block'; inp.value='';
+  $('dlgCheckWrap').style.display='flex'; $('dlgCheck').checked=false;
+  $('dlgCheckTxt').textContent='这是文件夹';
+  $('dlgCancel').style.display=''; $('dlgOk').textContent='创建'; $('dlgOk').className='primary';
+  showDlg(async ()=>{
+    const name = inp.value.trim(); if(!name) return;
+    const p = state.path[state.active] + '/' + name;
+    const isDir = $('dlgCheck').checked;
+    const r = await ctl(isDir?'mkdir':'touch',[p]);
+    if(r.ok){ toast('已创建','ok'); loadDir(state.active, state.path[state.active], {noHistory:true}); }
+    else toast(r.error,'err');
+  });
+  setTimeout(()=>inp.focus(),50);
+});
+$('btnSearch').addEventListener('click', ()=>{
+  inputDlg('搜索', '在当前目录搜索文件名关键字', '', async kw=>{
+    if(!kw) return;
+    busy(true);
+    const r = await ctl('exec', [btoa(`find '${state.path[state.active]}' -iname '*${kw.replace(/'/g,"'\\''")}*' 2>/dev/null | head -100`)]);
+    busy(false);
+    if(r.ok){ showResult('搜索结果', r.output||'（无结果）'); } else toast(r.error,'err');
+  });
+});
+$('btnCopyAct').addEventListener('click', ()=>{
+  const n = state.selected[state.active]; if(!n) return toast('请先选择文件');
+  opCopy(state.active, n);
+});
+$('btnMoveAct').addEventListener('click', ()=>{
+  const n = state.selected[state.active]; if(!n) return toast('请先选择文件');
+  opMove(state.active, n);
+});
+$('btnDelAct').addEventListener('click', ()=>{
+  const n = state.selected[state.active]; if(!n) return toast('请先选择文件');
+  opDelete(state.active, n);
+});
+
+function showResult(title, text){
+  $('dlgMark').textContent='🔍'; $('dlgTitle').textContent=title;
+  $('dlgMsg').innerHTML = `<pre style="font:12px/1.6 var(--mono);white-space:pre-wrap;word-break:break-all;margin:0">${esc(text)}</pre>`;
+  $('dlgInput').style.display='none'; $('dlgCheckWrap').style.display='none';
+  $('dlgCancel').style.display='none'; $('dlgOk').textContent='关闭';
+  showDlg(()=>{});
+}
+
+/* ══════════════════════════════════════════════
+   点击运行脚本 / 可执行文件（MT 管理器式）
+   ══════════════════════════════════════════════ */
+
+/* 结果弹窗（可滚动，带「复制」按钮） */
+function showRunResult(title, text, ok){
+  $('dlgMark').textContent = ok ? '✅' : '❌';
+  $('dlgTitle').textContent = title;
+  $('dlgMsg').innerHTML =
+    `<pre id="runOut" style="font:12px/1.55 var(--mono);white-space:pre-wrap;word-break:break-all;`+
+    `margin:0;max-height:46vh;overflow:auto;background:#0b0e14;color:#c9d1d9;padding:10px;border-radius:8px">${esc(text||'(无输出)')}</pre>`;
+  $('dlgInput').style.display='none'; $('dlgCheckWrap').style.display='none';
+  $('dlgCancel').style.display='none'; $('dlgOk').textContent='关闭';
+  showDlg(()=>{});
+}
+
+/* 执行一个文件并展示输出
+   filePath: 绝对路径  args: 附加参数(可选) */
+async function runFile(filePath, args=''){
+  // 交互式脚本（含 read 等）在无 stdin 环境会瞬间 EOF 退出 → 自动改走终端
+  if(!args && await looksInteractive(filePath)){
+    toast('该脚本需要交互输入，已切到终端运行');
+    return openInTerminal(filePath);
+  }
+  const wd = filePath.replace(/\/[^/]*$/, '') || '/';
+  busy(true);
+  toast('正在运行…');
+  let r;
+  try{
+    const b64args = args ? btoa(unescape(encodeURIComponent(args))) : '';
+    r = await ctl('run', [filePath, wd, b64args]);
+  }catch(e){
+    busy(false); showRunResult('运行失败', String(e), false); return;
+  }
+  busy(false);
+  if(r && r.ok){
+    const out = (r.output||'');
+    const code = (r.code!=null ? r.code : '?');
+    showRunResult('运行完成 (exit ' + code + ')', out + (out && !out.endsWith('\n')?'\n':'') , code=='0');
+  } else {
+    showRunResult('运行失败', (r && (r.error || r.output)) || '后端无响应', false);
+  }
+}
+
+/* 判断脚本是否需要交互（含 read 从 stdin 读取、或明显的菜单提示） */
+async function looksInteractive(filePath){
+  if(!/\.(sh|bash|zsh)$/i.test(filePath)) return false;
+  try{
+    const b64p = btoa(unescape(encodeURIComponent(filePath)));
+    const r = await ctl('exec',[btoa(
+      `p=$(echo '${b64p}' | base64 -d); ` +
+      `head -c 20000 "$p" 2>/dev/null | ` +
+      `grep -qE '(^|[^[:alnum:]_])(read|select)[[:space:]]' && echo INTERACTIVE || echo PLAIN`
+    )]);
+    return ((r.output||'') + (r.error||'')).includes('INTERACTIVE');
+  }catch(e){ return false; }
+}
+
+/* 弹出运行方式选择：终端中运行 / 直接运行(root) */
+function runDlg(filePath){
+  const name = filePath.replace(/^.*\//,'');
+  const groups = [
+    ['运行方式', [
+      ['🚀','直接运行 (Root)','green', ()=>runFile(filePath)],
+      ['⌨️','在终端中运行','blue', ()=>{ closeSheet(); openInTerminal(filePath); }],
+      ['▶️','运行（带参数）','amber', ()=>{ closeSheet(); inputDlg('运行参数','为「'+name+'」输入命令行参数（可留空）','',(v)=>runFile(filePath, v)); }],
+    ]],
+    ['其他', [
+      ['📝','编辑','blue', ()=>openEditor(filePath)],
+      ['👁','属性','green', ()=>showProps(filePath)],
+    ]],
+  ];
+  $('sheetTitle').firstChild.textContent = name;
+  $('sheetSub').textContent = filePath;
+  $('sheetActs').innerHTML = groups.map(([gname, items])=>
+    `<div class="grp"><div class="grp-name">${gname}</div><div class="acts">` +
+    items.map((it,i)=>`<button class="act ${it[2]}" data-g="${esc(gname)}" data-i="${i}">
+      <span class="ai">${it[0]}</span>${esc(it[1])}</button>`).join('') +
+    `</div></div>`
+  ).join('');
+  const flat = {};
+  groups.forEach(([g,items])=>items.forEach((it,i)=>flat[g+'_'+i]=it[3]));
+  $('sheetActs').querySelectorAll('.act').forEach(btn=>{
+    btn.addEventListener('click',()=>{ const fn=flat[btn.dataset.g+'_'+btn.dataset.i]; closeSheet(); if(fn)fn(); });
+  });
+  $('sheetBk').classList.add('on');
+}
+
+/* 在终端页里运行文件（JieMoSi 式：把目标作为 ttyd shell 参数，重启终端直接跑） */
+async function openInTerminal(filePath){
+  switchPage('term');
+  toast('正在启动终端并运行…');
+  await startTerminal(filePath);
+}
+
+/* ===== app-lib.js ===== */
+/* ══════════════════════════════════════════════
+   xzm 管理器 · 文本编辑器 / 书签 / 设置 / 终端
+   ══════════════════════════════════════════════ */
+
+/* ── 文本编辑器 ── */
+async function openEditor(path){
+  busy(true);
+  const r = await ctl('read', [path]);
+  busy(false);
+  if(!r.ok){ toast(r.error,'err'); return; }
+  let text = '';
+  try{ text = decodeURIComponent(escape(atob(r.base64))); }
+  catch(e){ text = atob(r.base64||''); }
+  state.editorPath = path;
+  $('edName').firstChild.textContent = path.split('/').pop() || path;
+  $('edPath').textContent = path;
+  $('edArea').value = text;
+  updateGutter();
+  $('edMeta').textContent = `${text.split('\n').length} 行 · ${r.size} 字节`;
+  $('editor').classList.add('on');
+  $('edArea').focus();
+}
+function closeEditor(){ $('editor').classList.remove('on'); state.editorPath=null; }
+function updateGutter(){
+  const lines = $('edArea').value.split('\n').length;
+  $('edGutter').textContent = Array.from({length:lines},(_,i)=>i+1).join('\n');
+}
+$('edArea').addEventListener('input', updateGutter);
+$('edArea').addEventListener('scroll', ()=>{
+  $('edGutter').style.transform = `translateY(-${$('edArea').scrollTop}px)`;
+});
+$('edClose').addEventListener('click', closeEditor);
+$('edSave').addEventListener('click', async ()=>{
+  if(!state.editorPath) return;
+  busy(true);
+  let b64='';
+  try{ b64 = btoa(unescape(encodeURIComponent($('edArea').value))); }
+  catch(e){ b64 = btoa($('edArea').value); }
+  const r = await ctl('write', [state.editorPath, b64]);
+  busy(false);
+  if(r.ok){ toast('已保存','ok'); }
+  else toast(r.error,'err');
+});
+$('edSearchBtn').addEventListener('click', ()=>{
+  inputDlg('查找', '输入要查找的文本', '', kw=>{
+    if(!kw) return;
+    const ta = $('edArea');
+    const idx = ta.value.indexOf(kw);
+    if(idx<0) return toast('未找到','err');
+    ta.focus(); ta.setSelectionRange(idx, idx+kw.length);
+    toast('已定位','ok');
+  });
+});
+
+/* ── 书签 ── */
+function bookmarkKey(){ return 'bookmarks'; }
+async function loadBookmarks(){
+  const r = await ctl('pref-get', [bookmarkKey()]);
+  if(r.ok && r.value){
+    try{ state.bookmarks = JSON.parse(r.value); }catch(e){ state.bookmarks=[]; }
+  } else state.bookmarks = [];
+}
+async function saveBookmarks(){
+  await ctl('pref-set', [bookmarkKey(), JSON.stringify(state.bookmarks)]);
+  renderBookmarks();
+}
+function addBookmark(path){
+  if(state.bookmarks.includes(path)) return toast('已存在书签');
+  state.bookmarks.push(path);
+  saveBookmarks().then(()=>toast('已添加书签','ok'));
+}
+function renderBookmarks(){
+  const el = $('bookList');
+  if(!state.bookmarks.length){ el.innerHTML='<div class="hintbox">暂无书签</div>'; return; }
+  el.innerHTML = state.bookmarks.map((p,i)=>
+    `<div class="list-row-mini">
+      <div style="min-width:0"><div class="mini-t">${esc(p.split('/').pop()||p)}</div><div class="mini-p">${esc(p)}</div></div>
+      <div style="display:flex;gap:6px">
+        <button class="ghost" data-open="${i}">打开</button>
+        <button class="danger" data-del="${i}">删</button>
+      </div>
+    </div>`).join('');
+  el.querySelectorAll('[data-open]').forEach(b=>b.addEventListener('click',()=>{
+    loadDir(state.active, state.bookmarks[+b.dataset.open]);
+  }));
+  el.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click',()=>{
+    state.bookmarks.splice(+b.dataset.del,1); saveBookmarks();
+  }));
+}
+$('btnAddBook').addEventListener('click', ()=>addBookmark(state.path.A));
+$('btnAddBookR').addEventListener('click', ()=>addBookmark(state.path.B));
+
+/* ── 设置 ── */
+async function refreshSetInfo(){
+  const el = $('setInfo');
+  const rootTest = await sh('id');
+  el.innerHTML = `<b>环境</b><br>
+    引擎：${envName}<br>
+    Root：${rootTest.out.trim()||'未知'}<br>
+    模块目录：${moduleDir}<br>
+    数据目录：${MODDATA}`;
+}
+$('btnTestRoot').addEventListener('click', async ()=>{
+  const r = await sh('id; echo ---; getprop ro.build.version.release');
+  showResult('Root 检测', r.out || r.err || '无输出');
+});
+$('btnDiag').addEventListener('click', async ()=>{
+  busy(true);
+  const info = [];
+  info.push('bridge = ' + bridgeKind);
+  info.push('moduleDir = ' + moduleDir);
+  info.push('MODDATA = ' + MODDATA);
+  var ksuLen = (window.ksu && window.ksu.exec) ? window.ksu.exec.length : '?';
+  info.push('window.ksu = ' + (window.ksu ? ('存在, exec.length=' + ksuLen) : '不存在'));
+  if(window.ksu){
+    info.push('ksu 上方法: ' + Object.getOwnPropertyNames(window.ksu).slice(0,20).join(','));
+  }
+  // 探测模块脚本
+  const p1 = await sh(`[ -f ${moduleDir}/bin/xzmctl.sh ] && echo EXISTS || echo MISSING`);
+  info.push('xzmctl.sh: [' + p1.out.trim() + '] err=' + p1.err.trim() + ' code=' + p1.code);
+  // /sdcard 链接情况
+  const lk = await sh(`ls -ld /sdcard; readlink -f /sdcard; echo "---"; ls -A /sdcard 2>&1 | head -5`);
+  info.push('--- /sdcard 检查 ---\n' + (lk.out || '(空)').trim());
+  // 直接跑 list
+  const raw = await sh(`XZM_DATA_DIR=${MODDATA} sh ${moduleDir}/bin/xzmctl.sh list /sdcard 2>&1`);
+  info.push('--- 原始响应 (code=' + raw.code + ') ---');
+  info.push((raw.out || '(空)').slice(0, 600));
+  if(raw.err) info.push('--- stderr ---\n' + raw.err.slice(0,300));
+  const json = await ctl('list', ['/sdcard']);
+  info.push('--- ctl() 解析结果 ---');
+  info.push(JSON.stringify(json, null, 2).slice(0, 500));
+  busy(false);
+  showResult('环境诊断', info.join('\n'));
+});
+$('btnViewLog').addEventListener('click', async ()=>{
+  const r = await sh(`tail -n 100 ${MODDATA}/logs/module.log 2>/dev/null`);
+  showResult('运行日志', r.out || '（无日志）');
+});
+$('btnClearPref').addEventListener('click', ()=>{
+  confirmDlg('清空偏好', '将删除所有书签与偏好设置，确定？', async ()=>{
+    await ctl('exec',[btoa(`rm -f ${MODDATA}/prefs/*`)]);
+    state.bookmarks=[]; renderBookmarks(); toast('已清空','ok');
+  });
+});
+
+/* ── 终端 ── */
+const TERM_PORT = 7681;
+/* 终端(ttyd)所在主机：用当前页面 host（设备IP），回环在应用WebView里不可达 */
+function termHost(){
+  const h = location.hostname;
+  if(!h || h==='localhost' || h==='127.0.0.1') {
+    // 页面本身走 http 时，借用页面 host；否则回退
+    return (location.protocol.startsWith('http') ? location.hostname : '127.0.0.1');
+  }
+  return h;
+}
+function termCmdB64(cmd){ return btoa(unescape(encodeURIComponent(cmd))); }
+// 确保 ttyd / shell 就位：缺失则从模块目录复制（自愈）
+async function termPrepare(){
+  const r = await ctl('exec',[termCmdB64(
+    `set -e; ` +
+    `mkdir -p ${MODDATA}/bin ${MODDATA}/logs; ` +
+    `BIN=${MODDATA}/bin/ttyd; SH=${MODDATA}/bin/xzm-shell.sh; ` +
+    `SRCBIN=${moduleDir}/bin/ttyd; SRCSH=${moduleDir}/bin/xzm-shell.sh; ` +
+    `echo "src bin exists:"; [ -f "$SRCBIN" ] && echo YES_BIN || echo NO_BIN; ` +
+    `echo "src sh exists:"; [ -f "$SRCSH" ] && echo YES_SH || echo NO_SH; ` +
+    `if [ ! -x "$BIN" ] && [ -f "$SRCBIN" ]; then cp -f "$SRCBIN" "$BIN" && chmod 0755 "$BIN"; fi; ` +
+    `if [ ! -x "$SH" ] && [ -f "$SRCSH" ]; then cp -f "$SRCSH" "$SH" && chmod 0755 "$SH"; fi; ` +
+    `if [ -x "$BIN" ]; then echo BIN_OK; else echo BIN_MISSING; fi; ` +
+    `if [ -x "$SH" ]; then echo SH_OK; else echo SH_MISSING; fi`
+  )]);
+  return (r.output || r.error || '').trim();
+}
+async function startTerminal(target /* 可选：要运行的文件 */){
+  busy(true);
+  let chk = '';
+  try{ chk = await termPrepare(); }catch(e){ busy(false); showResult('终端启动失败','检查阶段异常：'+e.message); return; }
+  if(chk.includes('BIN_MISSING')){ busy(false); showResult('终端启动失败','缺少 ttyd 二进制。\n'+chk); return; }
+  if(chk.includes('SH_MISSING')){ busy(false); showResult('终端启动失败','缺少 xzm-shell.sh。\n'+chk); return; }
+  // JieMoSi 式：把目标文件作为 ttyd shell 的参数传入（运行完进入 root shell）
+  const esc = (target||'').replace(/'/g, "'\\''");
+  const launch =
+    `mkdir -p ${MODDATA}/logs /data/local/tmp 2>/dev/null; ` +
+    `echo "=== launch $(date) target='${esc}' ===" >> /data/local/tmp/xzm-ttyd.log 2>&1; ` +
+    `pgrep -x ttyd >/dev/null 2>&1 && killall ttyd 2>/dev/null; ` +
+    `sleep 0.3; ` +
+    `cd ${MODDATA}; ` +
+    `( setsid ${MODDATA}/bin/ttyd -p ${TERM_PORT} -i 0.0.0.0 -W -w /data/adb ` +
+    `${MODDATA}/bin/xzm-shell.sh ${target ? "'"+esc+"'" : "''"} ` +
+    `</dev/null >>${MODDATA}/logs/ttyd.log 2>>/data/local/tmp/xzm-ttyd.log & ) ; ` +
+    `sleep 0.5; ` +
+    `echo "after-launch pgrep:"; pgrep -x ttyd || echo none; ` +
+    `echo DONE`;
+  // 不 await 这条（可能因后台任务不返回），用竞速超时
+  try{
+    await Promise.race([
+      ctl('exec',[termCmdB64(launch)]),
+      new Promise(res=>setTimeout(()=>res({output:'TIMEOUT'}), 4000))
+    ]);
+  }catch(e){}
+  busy(false);
+  toast('终端已启动，正在探测…','ok');
+  // 稍后探测是否真的起来了
+  setTimeout(async ()=>{
+    let st='';
+    try{ st = await ctl('exec',[termCmdB64(
+      `echo HAVE_CURL:; command -v curl || echo "(no curl)"; ` +
+      `echo PROCESS:; pgrep -x ttyd && echo "(running)" || echo "(none)"; ` +
+      `echo PORT_NETSTAT:; (netstat -ltn 2>/dev/null | grep ':'${TERM_PORT}) || echo "(netstat 无输出)"; ` +
+      `echo PORT_PROC:; (cat /proc/net/tcp /proc/net/tcp6 2>/dev/null | grep -i '1E01') && echo "(端口存在)" || echo "(端口不存在)"; ` +
+      `echo TRY_CURL:; (curl -s -m 3 -o /dev/null -w "http=%{http_code}" http://127.0.0.1:${TERM_PORT}/ 2>&1); echo; ` +
+      `echo LOG1:; tail -n 15 ${MODDATA}/logs/ttyd.log 2>&1; echo LOG2:; tail -n 15 /data/local/tmp/xzm-ttyd.log 2>&1`
+    )]).then(r=>r.output||r.error||''); }catch(e){ st = '探测失败:'+e.message; }
+    const portOpen = st.includes('http=200') || st.includes('(端口存在)');
+    const running = st.includes('(running)');
+    if(portOpen){
+      $('termFrame').src = `http://${termHost()}:${TERM_PORT}/?_=${Date.now()}`;
+      showResult('终端已就绪 ✓', 'ttyd 正常监听。若下方空白，是 WebView 拦截，请点「新窗口打开」。\n\n' + st);
+    } else if(running){
+      showResult('ttyd 在跑但端口没通', '进程在，但端口未监听：\n\n' + st);
+    } else {
+      showResult('终端未启动', 'ttyd 没起来：\n\n' + st);
+    }
+  }, 2000);
+}
+$('btnTermStart').addEventListener('click', startTerminal);
+$('btnTermStop').addEventListener('click', async ()=>{
+  await ctl('exec',[btoa(`pkill -f 'ttyd.*xzm' 2>/dev/null; echo done`)]);
+  $('termFrame').src='about:blank';
+  toast('终端已停止');
+});
+$('btnTermOpen').addEventListener('click', ()=>{
+  window.open(`http://${termHost()}:${TERM_PORT}/`, '_blank');
+});
+$('btnTermLog').addEventListener('click', async ()=>{
+  busy(true);
+  let txt='';
+  try{
+    const r = await ctl('exec',[termCmdB64(
+      `echo '=== ttyd 进程 ==='; pgrep -x ttyd || echo '(无)'; ` +
+      `echo '=== 端口 ${TERM_PORT} ==='; (netstat -ltn 2>/dev/null | grep ':'${TERM_PORT}) || echo '(未监听)'; ` +
+      `echo '=== curl 测试 ==='; curl -s -o /dev/null -w "http=%{http_code}\n" http://127.0.0.1:${TERM_PORT}/ 2>&1 || echo '(curl 失败)'; ` +
+      `echo '=== 日志(${MODDATA}) ==='; tail -n 30 ${MODDATA}/logs/ttyd.log 2>&1; echo '=== 日志(/data/local/tmp) ==='; tail -n 30 /data/local/tmp/xzm-ttyd.log 2>&1`)]);
+    txt = r.output || r.error || '（空）';
+  }catch(e){ txt = '读取失败: ' + e.message; }
+  busy(false);
+  showResult('ttyd 日志', txt);
+});
+
+/* ══ 初始化 ══ */
+let envName = '检测中';
+(function init(){
+  var step = window.__xzmStep || function(){};
+  step('init-start');
+  // 1) 先立即绑定所有 UI 交互 —— 保证无论后端如何，按钮都能点
+  try{
+    bindPane('A'); bindPane('B');
+    step('panes-bound');
+    if(typeof bindToolbar==='function') bindToolbar();
+    if(typeof bindEditor==='function') bindEditor();
+    if(typeof bindTerminal==='function') bindTerminal();
+  }catch(e){ console.error('绑定 UI 失败', e); step('bind-ERR:'+e.message); }
+
+  // 2) 全局错误兜底，直接显示在界面上，方便排查
+  window.addEventListener('error', ev=>{
+    try{ toast('脚本错误: ' + (ev.message||ev.error), 'err'); }catch(_){}
+  });
+  window.addEventListener('unhandledrejection', ev=>{
+    try{ toast('异步错误: ' + (ev.reason && ev.reason.message || ev.reason), 'err'); }catch(_){}
+  });
+  step('handlers-ok');
+
+  // 3) 再做异步的后端探测/加载（失败不影响按钮可点）
+  (async ()=>{
+    try{
+      await detectModuleDir();
+      step('moddir=' + moduleDir.split('/').pop());
+    }catch(e){ console.error('detectModuleDir', e); step('moddir-ERR'); }
+    let env='fallback';
+    try{
+      env = await initBridge();
+      step('bridge=' + env);
+    }catch(e){ console.error('initBridge', e); step('bridge-ERR:'+e.message); }
+    envName = (env==='kernelsu') ? 'KernelSU WebUI'
+            : (env==='httpcgi') ? '本地服务' : '浏览器降级';
+    const chip = $('chipEnv');
+    if(chip){
+      chip.textContent = (env==='kernelsu') ? 'KernelSU ✓'
+                       : (env==='httpcgi') ? '本地服务 ✓' : '调试模式';
+      if(env==='kernelsu' || env==='httpcgi') chip.classList.add('root');
+    }
+    const sub = $('brandSub');
+    if(sub) sub.textContent = '文件管理 · Root 终端 · ' + envName;
+
+    try{ await loadBookmarks(); }catch(e){ console.error('loadBookmarks', e); }
+    try{
+      await loadDir('A','/sdcard', {noHistory:true});
+      step('listA=' + (state.entries.A?state.entries.A.length:'?'));
+    }catch(e){ console.error('loadA', e); step('listA-ERR:'+e.message); toast('左栏加载失败: '+e.message,'err'); }
+    try{ await loadDir('B','/sdcard/Download', {noHistory:true}); }catch(e){ console.error('loadB', e); }
+    state.history.A = [state.path.A];
+    state.history.B = [state.path.B];
+    step('done');
+    // 全部成功 → 3 秒后隐藏探针
+    setTimeout(()=>{ var el=document.getElementById('bootProbe'); if(el && !el.textContent.match(/ERR|错误/)) el.style.display='none'; }, 3000);
+  })();
+})();
+
+</script>
+</body>
+</html>

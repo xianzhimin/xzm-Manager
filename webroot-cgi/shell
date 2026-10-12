@@ -1,0 +1,35 @@
+#!/system/bin/sh
+# ═══════════════════════════════════════════════════════════════
+#  xzm 管理器 · WebUI 的 root 执行桥接（CGI）
+#  被 busybox httpd 调用，以 root 身份运行。
+#  用法：
+#    - GET : /cgi-bin/shell?cmd=<urlencoded>
+#    - POST: body 即为命令原文
+#  返回：纯文本命令输出（stdout+stderr），HTTP 200。
+# ═══════════════════════════════════════════════════════════════
+
+# 输出头
+printf 'Content-Type: text/plain; charset=utf-8\r\n'
+printf 'Cache-Control: no-store\r\n'
+printf 'Access-Control-Allow-Origin: *\r\n'
+printf '\r\n'
+
+METHOD="${REQUEST_METHOD:-GET}"
+
+if [ "$METHOD" = "POST" ]; then
+  CMD="$(cat)"
+else
+  # 从 QUERY_STRING 取 cmd=... 并 urldecode
+  QS="${QUERY_STRING:-}"
+  RAW="${QS#*cmd=}"
+  # 简单 urldecode（busybox httpd 自带 -d）
+  CMD="$(printf '%b' "$(printf '%s' "$RAW" | sed -e 's/+/ /g' -e 's/%\([0-9A-Fa-f][0-9A-Fa-f]\)/\\x\1/g')")"
+fi
+
+if [ -z "$CMD" ]; then
+  printf 'ERROR: empty command\n'
+  exit 0
+fi
+
+# 以 sh -c 执行，合并 stderr
+/system/bin/sh -c "$CMD" 2>&1

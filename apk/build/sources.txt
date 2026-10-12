@@ -1,0 +1,6 @@
+src/com/xzm/launcher/WebUIActivity.java
+src/com/xzm/launcher/BootReceiver.java
+src/com/xzm/launcher/NotifyService.java
+src/com/xzm/launcher/MainActivity.java
+src/com/xzm/launcher/NotifyHelper.java
+build/gen/com/xzm/launcher/R.java

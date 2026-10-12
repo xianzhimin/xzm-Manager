@@ -1,0 +1,6 @@
+id=xzm_manager
+name=xzm 管理器
+version=1.0.52
+versionCode=52
+author=xzm
+description=全管理器兼容（KernelSU/SukiSU/APatch/Magisk）的双栏文件管理与 root 终端，浅色简约界面

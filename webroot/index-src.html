@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=3.0, user-scalable=yes">
+<title>xzm 管理器</title>
+<script>
+/* 启动探针：在任何主逻辑前运行，把关键状态写进页面，方便定位崩溃点 */
+window.__XZM_BOOT__ = { ver:'1.0.52', t:Date.now(), steps:[] };
+window.__xzmStep = function(s){ try{ window.__XZM_BOOT__.steps.push(s); var el=document.getElementById('bootProbe'); if(el) el.textContent = '构建 ' + window.__XZM_BOOT__.ver + ' | 启动: ' + window.__XZM_BOOT__.steps.join(' → '); }catch(e){} };
+window.addEventListener('error', function(e){
+  try{
+    var el = document.getElementById('bootProbe');
+    if(el){ el.style.display='block'; el.style.background='#FEE'; el.style.color='#900';
+      el.textContent = '启动错误: ' + (e.message||e.error) + (e.lineno?(' @行'+e.lineno):''); }
+  }catch(_){}
+});
+window.__xzmStep('head-ok');
+/* 调试：记录触摸/点击/错误到探针，便于定位"点不动" */
+(function(){
+  window.__xzmLog = [];
+  function add(s){ try{ window.__xzmLog.push(s); if(window.__xzmLog.length>12) window.__xzmLog.shift();
+    var el=document.getElementById('bootProbe'); if(el) el.textContent='启动: '+window.__XZM_BOOT__.steps.join(' → ')+' | 触摸:'+window.__xzmLog.join(',');
+  }catch(e){} }
+  ['touchstart','pointerdown','click'].forEach(function(t){
+    document.addEventListener(t, function(e){
+      var tg=e.target, id=(tg&&tg.id)?('#'+tg.id):((tg&&tg.className)?('.'+String(tg.className).split(' ')[0]):(tg&&tg.tagName));
+      add(t.charAt(0)+':'+id);
+    }, true);
+  });
+})();
+</script>
+<style>
+  :root{
+    --bg:#F6F7F9;--surface:#FFFFFF;--surface-2:#F1F3F6;--line:#E5E8EE;--line-strong:#D6DAE3;
+    --text:#1F2430;--text-2:#5B6474;--muted:#98A1B2;
+    --main:#2F6BFF;--main-soft:#EAF0FF;--main-line:#C9D9FF;
+    --accent:#12B886;--accent-soft:#E6F8F2;--warn:#F08C00;--warn-soft:#FFF4E2;
+    --danger:#E03131;--danger-soft:#FDECEC;
+    --shadow-sm:0 1px 2px rgba(24,32,48,.06),0 1px 3px rgba(24,32,48,.05);
+    --shadow:0 6px 20px rgba(24,32,48,.08),0 2px 6px rgba(24,32,48,.05);
+    --shadow-lg:0 18px 50px rgba(24,32,48,.16);
+    --radius:14px;--radius-sm:10px;--radius-xs:8px;
+    --font:-apple-system,'Segoe UI',system-ui,'Microsoft YaHei','PingFang SC',sans-serif;
+    --mono:ui-monospace,SFMono-Regular,'SF Mono',Consolas,'Microsoft YaHei',monospace;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{font-family:var(--font);background:var(--bg);color:var(--text);
+    padding:14px 14px calc(84px + env(safe-area-inset-bottom));
+    padding-top:calc(12px + env(safe-area-inset-top));-webkit-font-smoothing:antialiased;overflow-x:hidden}
+  button,.btn{font-family:inherit;border:1px solid var(--line);background:var(--surface);color:var(--text);
+    border-radius:var(--radius-xs);padding:9px 12px;font-size:13px;font-weight:600;cursor:pointer;
+    display:inline-flex;align-items:center;gap:6px;transition:background .14s,border-color .14s,color .14s;
+    -webkit-tap-highlight-color:transparent;white-space:nowrap}
+  button:hover{border-color:var(--line-strong);background:var(--surface-2)}
+  button.primary{background:var(--main);border-color:var(--main);color:#fff}
+  button.accent{background:var(--accent-soft);border-color:#B9E9DA;color:#0B8A63}
+  button.danger{background:var(--danger-soft);border-color:#F6C9C9;color:var(--danger)}
+  button.ghost{background:transparent;border-color:transparent}
+  button.ghost:hover{background:var(--surface-2)}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  .icon-btn{width:38px;height:38px;justify-content:center;padding:0;font-size:16px}
+
+  .app-header{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:var(--surface);
+    border:1px solid var(--line);border-radius:var(--radius);padding:11px 13px;box-shadow:var(--shadow-sm);margin-bottom:11px}
+  .brand{display:flex;align-items:center;gap:11px;min-width:0}
+  .brand-logo{width:38px;height:38px;border-radius:11px;flex:0 0 auto;
+    background:linear-gradient(135deg,#2F6BFF,#12B886);color:#fff;display:grid;place-items:center;
+    font-weight:800;font-size:14px;letter-spacing:-.5px;box-shadow:0 4px 12px rgba(47,107,255,.28)}
+  .brand-title{font-size:16px;font-weight:800;letter-spacing:-.2px}
+  .brand-sub{font-size:11px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .chips{display:flex;gap:6px;margin-left:auto;flex-wrap:wrap}
+  .chip{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;padding:5px 9px;
+    border-radius:999px;border:1px solid var(--line-strong);background:var(--surface-2);color:var(--text-2)}
+  .chip .dot{width:6px;height:6px;border-radius:50%;background:var(--accent)}
+  .chip.root{background:var(--main-soft);border-color:var(--main-line);color:var(--main)}
+
+  .toolbar{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:11px;align-items:center}
+  .toolbar .sep{width:1px;height:24px;background:var(--line);margin:0 2px}
+
+  .pathbar{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--line);
+    border-radius:var(--radius-sm);padding:7px 9px;box-shadow:var(--shadow-sm);margin-bottom:11px}
+  .pathbar .crumb{display:flex;align-items:center;gap:1px;flex:1;min-width:0;overflow-x:auto;scrollbar-width:none}
+  .pathbar .crumb::-webkit-scrollbar{display:none}
+  .crumb b{font-size:13px;font-weight:600;color:var(--text-2);padding:4px 6px;border-radius:6px;cursor:pointer;white-space:nowrap}
+  .crumb b:hover{background:var(--surface-2);color:var(--text)}
+  .crumb .slash{color:var(--muted);font-size:12px}
+  .path-input{flex:1;min-width:0;border:1px solid var(--main-line);background:var(--surface);
+    border-radius:6px;padding:4px 7px;font:600 12px/1.4 var(--mono);color:var(--text);outline:none;display:none}
+
+  .panes{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+  .pane{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+    box-shadow:var(--shadow-sm);overflow:hidden;display:flex;flex-direction:column;min-width:0}
+  .pane.active{border-color:var(--main-line);box-shadow:0 0 0 1px var(--main-line),var(--shadow)}
+  .pane-head{display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--line);background:var(--surface-2)}
+  .pane-tag{font-size:11px;font-weight:800;color:var(--text-2);background:var(--surface);border:1px solid var(--line-strong);
+    border-radius:6px;padding:3px 8px;flex:0 0 auto;cursor:pointer}
+  .pane.active .pane-tag{color:var(--main);border-color:var(--main-line);background:var(--main-soft)}
+  .pane-path{font:600 11.5px/1.4 var(--mono);color:var(--text-2);white-space:nowrap;overflow:hidden;
+    text-overflow:ellipsis;min-width:0;flex:1}
+  .pane-count{font-size:11px;color:var(--muted);flex:0 0 auto}
+
+  .pane-sort{margin-left:auto;flex:0 0 auto}
+  .pane-sort.on{color:var(--main);border-color:var(--main-line);background:var(--main-soft)}
+  .sort-menu{position:fixed;z-index:70;background:var(--surface);border:1px solid var(--line-strong);
+    border-radius:12px;box-shadow:var(--shadow-lg);padding:6px;min-width:150px;font-size:13px}
+  .sort-menu .si{display:flex;align-items:center;gap:8px;padding:9px 11px;border-radius:8px;cursor:pointer}
+  .sort-menu .si:hover{background:var(--surface-2)}
+  .sort-menu .si.on{color:var(--main);font-weight:700;background:var(--main-soft)}
+  .sort-menu .sep2{height:1px;background:var(--line);margin:5px 4px}
+  .sort-menu .si .arw{margin-left:auto;font-size:12px;color:var(--muted)}
+  .list{overflow-y:auto;max-height:56vh;min-height:360px;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+  .list.loading{opacity:.5;pointer-events:none}
+  .row{display:grid;grid-template-columns:34px minmax(0,1fr) auto;align-items:start;gap:10px;
+    padding:9px 11px;border-bottom:1px solid var(--line);cursor:pointer;user-select:none;transition:background .12s}
+  .row:last-child{border-bottom:0}
+  .row:hover{background:var(--surface-2)}
+  .row.sel{background:var(--main-soft);box-shadow:inset 3px 0 0 var(--main)}
+  .row.multi{background:#E6F8F2;box-shadow:inset 3px 0 0 var(--accent)}
+  .row.located{animation:loc 1.2s ease}
+  @keyframes loc{0%,100%{background:var(--main-soft)}40%{background:#D6F5EA}}
+  .ic{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;font-size:15px;flex:0 0 auto}
+  .ic.dir{background:var(--main-soft);color:var(--main)}
+  .ic.image{background:var(--accent-soft);color:var(--accent)}
+  .ic.text{background:var(--surface-2);color:var(--text-2);border:1px solid var(--line)}
+  .ic.archive{background:var(--warn-soft);color:var(--warn)}
+  .ic.script,.ic.exec{background:#F0EBFF;color:#7048E8}
+  .ic.video{background:#FDE8F1;color:#C2255C}
+  .ic.audio{background:#E7F5FF;color:#1971C2}
+  .ic.link{background:var(--surface-2);color:var(--muted)}
+  .row-body{min-width:0;overflow:hidden}
+  .name{font-size:13.5px;font-weight:600;white-space:normal;overflow-wrap:anywhere;word-break:break-word;line-height:1.35;
+    display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:4;overflow:hidden}
+  .meta{font-size:11px;color:var(--muted);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    font-family:var(--mono)}
+  .more{opacity:0;transition:opacity .12s;width:30px;height:30px;font-size:17px}
+  .row:hover .more{opacity:1}
+
+  .empty{padding:40px 16px;text-align:center;color:var(--muted);font-size:13px}
+
+  .tabbar{position:fixed;left:0;right:0;bottom:0;z-index:30;display:grid;grid-template-columns:repeat(4,1fr);gap:2px;
+    background:rgba(255,255,255,.94);backdrop-filter:blur(12px);border-top:1px solid var(--line);
+    padding:7px 8px calc(7px + env(safe-area-inset-bottom))}
+  .tab{display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 0;border:0;background:transparent;
+    color:var(--muted);font-size:10.5px;font-weight:700;border-radius:10px}
+  .tab .ti{font-size:18px;line-height:1}
+  .tab.on{color:var(--main);background:var(--main-soft)}
+
+  .page{display:none}.page.on{display:block}
+
+  .sheet-backdrop{position:fixed;inset:0;z-index:60;background:rgba(20,26,38,.34);backdrop-filter:blur(2px);
+    display:none;align-items:flex-end}
+  .sheet-backdrop.on{display:grid}
+  .sheet{background:var(--surface);border-radius:20px 20px 0 0;box-shadow:var(--shadow-lg);
+    padding:10px 12px calc(16px + env(safe-area-inset-bottom));animation:up .22s cubic-bezier(.2,.8,.3,1);max-height:82vh;display:flex;flex-direction:column}
+  @keyframes up{from{transform:translateY(24px);opacity:.4}to{transform:translateY(0);opacity:1}}
+  .sheet-grip{width:38px;height:4px;border-radius:99px;background:var(--line-strong);margin:2px auto 10px}
+  .sheet-title{font-size:13px;font-weight:800;padding:0 4px 9px;border-bottom:1px solid var(--line);margin-bottom:9px;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:0 0 auto}
+  .sheet-title span{display:block;font:500 11px/1.5 var(--mono);color:var(--muted);margin-top:3px;font-weight:400}
+  .sheet-scroll{overflow-y:auto;overscroll-behavior:contain}
+  .grp{margin-bottom:11px}
+  .grp:last-child{margin-bottom:0}
+  .grp-name{display:flex;align-items:center;gap:7px;font-size:11px;font-weight:800;color:var(--muted);letter-spacing:.4px;padding:2px 4px 8px}
+  .grp-name:after{content:"";flex:1;height:1px;background:var(--line)}
+  .acts{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+  .act{display:flex;flex-direction:column;align-items:center;gap:7px;padding:11px 4px;border:1px solid var(--line);
+    background:var(--surface);border-radius:12px;font-size:11.5px;font-weight:700;color:var(--text-2);cursor:pointer}
+  .act .ai{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;font-size:16px;background:var(--surface-2)}
+  .act.blue .ai{background:var(--main-soft);color:var(--main)}
+  .act.green .ai{background:var(--accent-soft);color:var(--accent)}
+  .act.amber .ai{background:var(--warn-soft);color:var(--warn)}
+  .act.red .ai{background:var(--danger-soft);color:var(--danger)}
+  .act:hover{border-color:var(--line-strong);background:var(--surface-2)}
+
+  .dlg-backdrop{position:fixed;inset:0;z-index:80;display:none;place-items:center;padding:16px;
+    background:rgba(20,26,38,.44);backdrop-filter:blur(3px)}
+  .dlg-backdrop.on{display:grid}
+  .dlg{width:min(520px,calc(100vw - 28px));max-height:calc(100vh - 32px);display:flex;flex-direction:column;
+    background:var(--surface);border-radius:16px;box-shadow:var(--shadow-lg);overflow:hidden}
+  .dlg-head{display:flex;align-items:center;gap:10px;padding:14px 15px;border-bottom:1px solid var(--line)}
+  .dlg-mark{width:32px;height:32px;border-radius:8px;display:grid;place-items:center;font-size:15px;
+    background:var(--main-soft);color:var(--main);flex:0 0 auto}
+  .dlg-title{font-size:15px;font-weight:800}
+  .dlg-body{padding:15px;overflow-y:auto;font-size:13px;line-height:1.6;color:var(--text-2)}
+  .dlg-input{width:100%;margin-top:10px;padding:11px 12px;border:1px solid var(--main-line);border-radius:9px;
+    background:var(--surface);color:var(--text);font:600 14px/1.3 var(--font);outline:none}
+  .dlg-input:focus{border-color:var(--main);box-shadow:0 0 0 3px var(--main-soft)}
+  .dlg-actions{display:flex;justify-content:flex-end;gap:8px;padding:0 15px 15px}
+  .dlg-actions button{min-width:80px;justify-content:center}
+  .dlg-check{display:flex;align-items:center;gap:9px;margin-top:11px;padding:9px 11px;border:1px solid var(--line);
+    border-radius:8px;background:var(--surface-2);font-size:12.5px;font-weight:600;color:var(--text-2);cursor:pointer}
+  .arc-head{font-size:12px;font-weight:700;color:var(--text-3);margin-bottom:8px}
+  .arc-list{max-height:48vh;overflow-y:auto;border:1px solid var(--line);border-radius:9px;background:var(--surface)}
+  .arc-row{display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--line);cursor:pointer}
+  .arc-row:last-child{border-bottom:none}
+  .arc-row:active{background:var(--main-soft)}
+  .arc-ico{flex:0 0 auto;font-size:14px}
+  .arc-name{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+    font:600 12.5px/1.3 var(--mono);color:var(--text)}
+  .arc-size{flex:0 0 auto;font:600 11px/1.3 var(--mono);color:var(--text-3)}
+  .arc-out{flex:0 0 auto;padding:4px 8px;border:1px solid var(--main-line);border-radius:7px;background:var(--surface-2);
+    color:var(--main);font:700 11px/1.2 var(--font);cursor:pointer}
+  .arc-out:active{background:var(--main-soft)}
+  .arc-empty{padding:16px;text-align:center;color:var(--text-3);font-size:12.5px}
+  .arc-page-head{display:flex;align-items:center;gap:8px;margin-bottom:9px;flex-wrap:wrap}
+  .arc-page-name{font:800 14px/1.3 var(--font);color:var(--text);max-width:44%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .arc-page-crumb{flex:1 1 auto;min-width:0;font:600 11.5px/1.3 var(--mono);color:var(--text-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .arc-page-actions{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+  .arc-page-list{border:1px solid var(--line);border-radius:10px;background:var(--surface);overflow-y:auto;max-height:62vh;min-height:220px;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+  .app-search-wrap{margin-bottom:9px}
+  .app-search-wrap input{width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid var(--line);border-radius:9px;background:var(--surface);color:var(--text);font:500 13px/1.2 var(--mono);outline:none}
+  .app-search-wrap input:focus{border-color:var(--main)}
+  .arc-item .apkg{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:600 12.5px/1.35 var(--mono);color:var(--text)}
+  .arc-item .aver{flex:0 0 auto;font:600 10.5px/1.3 var(--mono);color:var(--text-3)}
+  .app-row{gap:11px}
+  .app-ico{flex:0 0 auto;width:40px;height:40px;border-radius:10px;object-fit:contain;background:var(--surface-2);display:inline-flex;align-items:center;justify-content:center}
+  .app-ico.ph{font-size:20px}
+  .app-meta{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:2px}
+  .app-name{font:700 14px/1.25 var(--font);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .app-pkg{font:500 10.5px/1.3 var(--mono);color:var(--text-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .app-op{padding:6px 8px !important}
+  .arc-item{display:flex;align-items:center;gap:9px;padding:10px 12px;border-bottom:1px solid var(--line);cursor:pointer}
+  .arc-item:last-child{border-bottom:none}
+  .arc-item:active{background:var(--main-soft)}
+  .arc-item .ai{flex:0 0 auto;font-size:15px}
+  .arc-item .an{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:600 13px/1.3 var(--mono);color:var(--text)}
+  .arc-item .as{flex:0 0 auto;font:600 11px/1.3 var(--mono);color:var(--text-3)}
+  .dlg-check input{width:17px;height:17px;accent-color:var(--main)}
+
+  .editor{position:fixed;inset:0;z-index:85;display:none;flex-direction:column;background:var(--surface)}
+  .editor.on{display:flex}
+  .editor-head{display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--line);
+    background:var(--surface-2)}
+  .editor-name{font-size:14px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0}
+  .editor-name small{display:block;font:500 10px/1.4 var(--mono);color:var(--muted);font-weight:400}
+  .editor-body{flex:1;display:grid;grid-template-columns:48px minmax(0,1fr);min-height:0;overflow:hidden;background:#FBFCFD}
+  .editor-gutter{overflow:hidden;border-right:1px solid var(--line);background:var(--surface-2);color:var(--muted);
+    user-select:none;position:relative}
+  .editor-gutter-in{position:absolute;left:0;right:0;top:0;padding:12px 8px;text-align:right;
+    font:13px/1.55 var(--mono);white-space:pre}
+  .editor-area{width:100%;height:100%;padding:12px;border:0;resize:none;background:transparent;color:var(--text);
+    font:13px/1.55 var(--mono);white-space:pre;overflow:auto;tab-size:2;outline:none}
+  .editor-foot{display:flex;align-items:center;gap:8px;padding:9px 12px;border-top:1px solid var(--line);background:var(--surface-2)}
+  .editor-meta{font-size:11px;color:var(--muted);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+  .term{position:fixed;inset:0;z-index:85;display:none;flex-direction:column;background:#0B0E14}
+  .term.on{display:flex}
+  .term-head{display:flex;align-items:center;gap:10px;padding:10px 12px;background:#11151E;border-bottom:1px solid #1E2533;color:#D5DCE8}
+  .term-head .editor-name{color:#D5DCE8}.term-head .editor-name small{color:#7C8798}
+  .term-frame{flex:1;width:100%;border:0;background:#0B0E14}
+
+  .toast{position:fixed;left:50%;bottom:96px;z-index:95;transform:translate(-50%,14px);opacity:0;
+    background:#1F2430;color:#fff;font-size:13px;font-weight:600;padding:11px 16px;border-radius:11px;
+    box-shadow:var(--shadow-lg);transition:opacity .18s,transform .18s;pointer-events:none;max-width:min(560px,90vw);text-align:center}
+  .toast.on{opacity:1;transform:translate(-50%,0)}
+  .toast.ok{background:#0B8A63}.toast.err{background:#C92A2A}
+
+  .busybar{position:fixed;left:0;right:0;top:0;height:3px;z-index:99;background:transparent;overflow:hidden;display:none}
+  .busybar.on{display:block}
+  .busybar:after{content:"";position:absolute;left:-40%;top:0;height:100%;width:40%;
+    background:linear-gradient(90deg,transparent,var(--main),transparent);animation:busy 1s linear infinite}
+  @keyframes busy{to{left:100%}}
+
+  .list-row-mini{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;
+    padding:10px 11px;border:1px solid var(--line);border-radius:10px;background:var(--surface);margin-bottom:8px}
+  .mini-t{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .mini-p{font-size:11px;color:var(--muted);font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+  .hintbox{padding:12px 14px;border:1px dashed var(--line-strong);border-radius:12px;background:var(--surface);
+    font-size:12.5px;color:var(--text-2);line-height:1.7;margin-bottom:12px}
+  .btnline{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+
+  @media (max-width:900px){
+    /* 手机：app 式固定布局 —— body 不滚动，只有列表内部滚动，底部导航永不遮挡 */
+    html,body{height:100%;overflow:hidden}
+    body{padding:6px 6px 0;padding-top:calc(6px + env(safe-area-inset-top));display:flex;flex-direction:column}
+    /* 当前显示的 page 撑满剩余高度 */
+    .page.on{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;overflow-y:auto;-webkit-overflow-scrolling:touch;
+      padding-bottom:calc(62px + env(safe-area-inset-bottom))}
+    #page-file.on{overflow:hidden}
+    .app-header{padding:7px 10px;margin-bottom:8px;gap:8px;flex:0 0 auto}
+    .brand-title{font-size:16px}
+    .brand-sub{display:none}
+    .toolbar{margin-bottom:8px;flex:0 0 auto}
+    .toolbar button{padding:7px 9px}
+    .toolbar .mobile-hide{display:none}
+    .pathbar{margin-bottom:8px;padding:6px 8px;flex:0 0 auto}
+    /* 两栏并排，占满剩余高度 */
+    .panes{flex:1 1 auto;min-height:0;display:flex;flex-direction:row;gap:8px}
+    .pane{flex:1 1 0;min-width:0;display:flex;flex-direction:column;overflow:hidden}
+    /* 只有列表内部滚动（覆盖桌面的 max-height:56vh / min-height:360px） */
+    .pane .list{flex:1 1 auto;min-height:0;max-height:none;height:auto;overflow-y:auto;-webkit-overflow-scrolling:touch}
+    .acts{grid-template-columns:repeat(4,1fr)}
+    .tabbar{background:#FFFFFF;backdrop-filter:none;-webkit-backdrop-filter:none}
+    .row{transition:none}
+    #bootProbe{display:none}
+  }
+  @media (max-width:560px){
+    /* 窄竖屏：仍保持左右两栏，只做更紧凑的间距 */
+    .panes{gap:6px}
+    .chips{display:none}
+    .app-header{padding:6px 8px}
+    .toolbar{gap:5px}
+    .toolbar button{font-size:11px;padding:6px 8px}
+    .acts{grid-template-columns:repeat(4,1fr)}
+    .row{padding:8px 8px;gap:7px}
+    .row .name{font-size:13px}
+  }
+</style>
+</head>
+<body>
+
+<div id="bootProbe" style="margin:6px;padding:6px 8px;border-radius:8px;background:#EFEFEF;color:#333;font:12px/1.5 monospace;white-space:pre-wrap;pointer-events:none">启动…</div>
+<div class="busybar" id="busybar"></div>
+
+<header class="app-header">
+  <div class="brand">
+    <div class="brand-logo">xzm</div>
+    <div class="brand-title-wrap" style="min-width:0">
+      <div class="brand-title">xzm 管理器</div>
+      <div class="brand-sub" id="brandSub">文件管理 · Root 终端</div>
+    </div>
+  </div>
+  <div class="chips">
+    <span class="chip" id="chipEnv">检测中…</span>
+    <span class="chip" id="chipVer">v1.0.52</span>
+  </div>
+</header>
+
+<!-- ═══ 文件页 ═══ -->
+<div class="page on" id="page-file">
+  <div class="toolbar">
+    <button class="icon-btn ghost" id="btnBack" title="返回">←</button>
+    <button class="icon-btn ghost" id="btnUp" title="上一级">↑</button>
+    <button class="primary" id="btnNew">＋ 新建</button>
+    <button class="mobile-hide" id="btnCopyAct">复制</button>
+    <button class="mobile-hide" id="btnMoveAct">移动</button>
+    <button class="danger mobile-hide" id="btnDelAct">删除</button>
+    <div class="sep mobile-hide"></div>
+    <button class="icon-btn" id="btnSearch" title="搜索">🔍</button>
+    <button class="icon-btn" id="btnRefresh" title="刷新">⟳</button>
+    <button class="icon-btn mobile-hide" id="btnSync" title="同步对栏">⇄</button>
+  </div>
+
+  <div class="pathbar">
+    <span class="crumb" id="crumb"></span>
+    <input class="path-input" id="pathInput" spellcheck="false">
+    <button class="ghost icon-btn" id="btnEditPath" title="编辑路径">✎</button>
+  </div>
+
+  <div class="panes">
+    <section class="pane active" id="paneA" data-side="A">
+      <div class="pane-head">
+        <span class="pane-tag" id="tagA">左栏</span>
+        <span class="pane-path" id="pathA">/sdcard</span>
+        <span class="pane-count" id="countA"></span>
+        <button class="ghost icon-btn pane-sort" id="sortBtnA" title="排序方式">⇅</button>
+        <button class="ghost icon-btn pane-switch" id="switchA" title="切换到另一栏" style="display:none">⇄</button>
+      </div>
+      <div class="list" id="listA"></div>
+    </section>
+    <section class="pane" id="paneB" data-side="B">
+      <div class="pane-head">
+        <span class="pane-tag" id="tagB">右栏</span>
+        <span class="pane-path" id="pathB">/sdcard/Download</span>
+        <span class="pane-count" id="countB"></span>
+        <button class="ghost icon-btn pane-sort" id="sortBtnB" title="排序方式">⇅</button>
+        <button class="ghost icon-btn pane-switch" id="switchB" title="切换到另一栏" style="display:none">⇄</button>
+      </div>
+      <div class="list" id="listB"></div>
+    </section>
+  </div>
+</div>
+
+<!-- ═══ 终端页 ═══ -->
+<div class="page" id="page-term">
+  <div class="hintbox">
+    Root 终端 · 在这里可直接以 root 身份执行命令。首次打开会在后台启动终端服务。
+  </div>
+  <div class="btnline">
+    <button class="primary" id="btnTermStart">启动终端</button>
+    <button id="btnTermStop">停止</button>
+    <button id="btnTermOpen">新窗口打开</button>
+    <button id="btnTermLog">日志</button>
+  </div>
+  <div style="border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#0B0E14;height:60vh">
+    <iframe id="termFrame" style="width:100%;height:100%;border:0;background:#0B0E14" src="about:blank"></iframe>
+  </div>
+</div>
+
+<!-- ═══ 压缩包浏览页 ═══ -->
+<div class="page" id="page-arc">
+  <div class="arc-page-head">
+    <button class="icon-btn ghost" id="arcBack" title="返回上一级目录">↑</button>
+    <span class="arc-page-name" id="arcPageName">压缩包</span>
+    <span class="arc-page-crumb" id="arcPageCrumb" title="包内路径"></span>
+    <button class="ghost" id="arcClose" title="退出浏览">✕ 退出</button>
+  </div>
+  <div class="arc-page-actions">
+    <button class="primary" id="arcExtractAll">📤 全部解压到对栏</button>
+    <button id="arcExtractHere">🗂️ 解压到当前目录</button>
+  </div>
+  <div class="arc-page-list" id="arcPageList"></div>
+</div>
+
+<!-- ═══ 书签页 ═══ -->
+<div class="page" id="page-book">
+  <div class="hintbox">
+    书签保存在模块数据目录，更新模块或更换宿主后仍保留。点击条目直接跳转，右侧可删除。
+  </div>
+  <div class="btnline">
+    <button class="primary" id="btnAddBook">＋ 添加当前左栏目录</button>
+    <button id="btnAddBookR">＋ 添加当前右栏目录</button>
+  </div>
+  <div id="bookList"></div>
+</div>
+
+<!-- ═══ 设置页 ═══ -->
+<div class="page" id="page-set">
+  <div class="hintbox" id="setInfo">读取中…</div>
+  <div class="btnline">
+    <button id="btnClearPref">清空书签与偏好</button>
+    <button id="btnViewLog">查看运行日志</button>
+    <button id="btnTestRoot">检测 Root</button>
+    <button id="btnDiag">环境诊断</button>
+  </div>
+  <div class="hintbox">
+    <b>关于</b><br>
+    xzm 管理器 · 浅色简约 · 全管理器兼容<br>
+    模块 ID：xzm_manager · 数据目录：/data/adb/xzm_manager
+  </div>
+</div>
+
+<!-- ═══ 应用管理页 ═══ -->
+<div class="page" id="page-apps">
+  <div class="arc-page-head">
+    <span class="arc-page-name">已安装应用</span>
+    <span class="arc-page-crumb" id="appCount"></span>
+    <button class="ghost" id="appRefresh" title="刷新">⟳</button>
+  </div>
+  <div class="app-search-wrap">
+    <input id="appSearch" type="text" placeholder="搜索包名…" autocomplete="off">
+  </div>
+  <div class="arc-page-list" id="appList"></div>
+</div>
+
+<nav class="tabbar">
+  <button class="tab on" data-page="file"><span class="ti">📁</span>文件</button>
+  <button class="tab" data-page="apps"><span class="ti">📦</span>应用</button>
+  <button class="tab" data-page="term"><span class="ti">⌨️</span>终端</button>
+  <button class="tab" data-page="book"><span class="ti">🔖</span>书签</button>
+  <button class="tab" data-page="set"><span class="ti">⚙️</span>设置</button>
+</nav>
+
+<div class="sheet-backdrop" id="sheetBk">
+  <div class="sheet">
+    <div class="sheet-grip"></div>
+    <div class="sheet-title" id="sheetTitle">操作<span id="sheetSub"></span></div>
+    <div class="sheet-scroll" id="sheetActs"></div>
+  </div>
+</div>
+
+<div class="dlg-backdrop" id="dlgBk">
+  <div class="dlg">
+    <div class="dlg-head"><span class="dlg-mark" id="dlgMark">✎</span><span class="dlg-title" id="dlgTitle">提示</span></div>
+    <div class="dlg-body">
+      <div id="dlgMsg"></div>
+      <input class="dlg-input" id="dlgInput" style="display:none" spellcheck="false">
+      <label class="dlg-check" id="dlgCheckWrap" style="display:none"><input type="checkbox" id="dlgCheck"><span id="dlgCheckTxt"></span></label>
+    </div>
+    <div class="dlg-actions">
+      <button id="dlgCancel">取消</button>
+      <button class="primary" id="dlgOk">确定</button>
+    </div>
+  </div>
+</div>
+
+<div class="editor" id="editor">
+  <div class="editor-head">
+    <button class="ghost icon-btn" id="edClose">✕</button>
+    <div class="editor-name" id="edName">文件<small id="edPath"></small></div>
+    <button class="primary" id="edSave">保存</button>
+  </div>
+  <div class="editor-body">
+    <div class="editor-gutter"><div class="editor-gutter-in" id="edGutter">1</div></div>
+    <textarea class="editor-area" id="edArea" spellcheck="false" wrap="off"></textarea>
+  </div>
+  <div class="editor-foot">
+    <span class="editor-meta" id="edMeta"></span>
+    <button class="ghost" id="edSearchBtn">查找替换</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="app-core.js?v=20261012g"></script>
+<script src="app-files.js?v=20261012h"></script>
+<script src="app-actions.js?v=20261012g"></script>
+<script src="app-lib.js?v=20261012g"></script>
+</body>
+</html>

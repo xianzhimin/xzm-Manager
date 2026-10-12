@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=3.0, user-scalable=yes">
+<title>xzm 管理器 · 界面预览</title>
+<style>
+  :root{
+    --bg:#F6F7F9;--surface:#FFFFFF;--surface-2:#F1F3F6;--line:#E5E8EE;--line-strong:#D6DAE3;
+    --text:#1F2430;--text-2:#5B6474;--muted:#98A1B2;
+    --main:#2F6BFF;--main-soft:#EAF0FF;--main-line:#C9D9FF;
+    --accent:#12B886;--accent-soft:#E6F8F2;--warn:#F08C00;--warn-soft:#FFF4E2;--danger:#E03131;--danger-soft:#FDECEC;
+    --shadow-sm:0 1px 2px rgba(24,32,48,.06),0 1px 3px rgba(24,32,48,.05);
+    --shadow:0 6px 20px rgba(24,32,48,.08),0 2px 6px rgba(24,32,48,.05);
+    --shadow-lg:0 18px 50px rgba(24,32,48,.16);
+    --radius:14px;--radius-sm:10px;--radius-xs:8px;
+    --font:-apple-system,'Segoe UI',system-ui,'Microsoft YaHei','PingFang SC',sans-serif;
+    --mono:ui-monospace,SFMono-Regular,'SF Mono',Consolas,'Microsoft YaHei',monospace;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    font-family:var(--font);background:var(--bg);color:var(--text);
+    padding:16px 16px calc(88px + env(safe-area-inset-bottom));
+    padding-top:calc(14px + env(safe-area-inset-top));
+    -webkit-font-smoothing:antialiased;
+  }
+  button,.btn{font-family:inherit;border:1px solid var(--line);background:var(--surface);color:var(--text);
+    border-radius:var(--radius-xs);padding:9px 12px;font-size:13px;font-weight:600;cursor:pointer;
+    display:inline-flex;align-items:center;gap:6px;transition:background .14s,border-color .14s,box-shadow .14s,color .14s;
+    -webkit-tap-highlight-color:transparent;white-space:nowrap}
+  button:hover{border-color:var(--line-strong);background:var(--surface-2)}
+  button:active{transform:translateY(.5px)}
+  button.primary{background:var(--main);border-color:var(--main);color:#fff}
+  button.primary:hover{background:#245be0;border-color:#245be0}
+  button.accent{background:var(--accent-soft);border-color:#B9E9DA;color:#0B8A63}
+  button.danger{background:var(--danger-soft);border-color:#F6C9C9;color:var(--danger)}
+  button.ghost{background:transparent;border-color:transparent}
+  button.ghost:hover{background:var(--surface-2)}
+  .icon-btn{width:38px;height:38px;justify-content:center;padding:0;font-size:16px}
+
+  /* ── 顶栏 ── */
+  .app-header{
+    display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+    background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+    padding:12px 14px;box-shadow:var(--shadow-sm);margin-bottom:12px
+  }
+  .brand{display:flex;align-items:center;gap:11px;min-width:0}
+  .brand-logo{
+    width:40px;height:40px;border-radius:11px;flex:0 0 auto;
+    background:linear-gradient(135deg,#2F6BFF,#12B886);color:#fff;
+    display:grid;place-items:center;font-weight:800;font-size:15px;letter-spacing:-.5px;
+    box-shadow:0 4px 12px rgba(47,107,255,.28)
+  }
+  .brand-text{min-width:0}
+  .brand-title{font-size:17px;font-weight:800;letter-spacing:-.2px}
+  .brand-sub{font-size:11.5px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .chips{display:flex;gap:6px;margin-left:auto;flex-wrap:wrap}
+  .chip{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;
+    padding:5px 9px;border-radius:999px;border:1px solid var(--line-strong);background:var(--surface-2);color:var(--text-2)}
+  .chip .dot{width:6px;height:6px;border-radius:50%;background:var(--accent)}
+  .chip.root{background:var(--main-soft);border-color:var(--main-line);color:var(--main)}
+
+  /* ── 工具条 ── */
+  .toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+  .toolbar .sep{width:1px;background:var(--line);margin:2px 3px}
+
+  /* ── 路径栏 ── */
+  .pathbar{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--line);
+    border-radius:var(--radius-sm);padding:8px 10px;box-shadow:var(--shadow-sm);margin-bottom:12px}
+  .pathbar .crumb{display:flex;align-items:center;gap:2px;flex:1;min-width:0;overflow-x:auto;scrollbar-width:none}
+  .pathbar .crumb::-webkit-scrollbar{display:none}
+  .crumb b{font-size:13px;font-weight:600;color:var(--text-2);padding:4px 6px;border-radius:6px;cursor:pointer;white-space:nowrap}
+  .crumb b:hover{background:var(--surface-2);color:var(--text)}
+  .crumb .slash{color:var(--muted);font-size:12px}
+  .pathbar .path-input{flex:1;min-width:0;border:0;background:transparent;font:600 13px/1.4 var(--mono);color:var(--text);outline:none}
+
+  /* ── 双栏 ── */
+  .panes{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .pane{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow-sm);overflow:hidden;display:flex;flex-direction:column;min-width:0}
+  .pane.active{border-color:var(--main-line);box-shadow:0 0 0 1px var(--main-line),var(--shadow)}
+  .pane-head{display:flex;align-items:center;gap:8px;padding:9px 11px;border-bottom:1px solid var(--line);background:var(--surface-2)}
+  .pane-tag{font-size:11px;font-weight:800;color:var(--text-2);background:var(--surface);border:1px solid var(--line-strong);
+    border-radius:6px;padding:3px 8px;flex:0 0 auto}
+  .pane.active .pane-tag{color:var(--main);border-color:var(--main-line);background:var(--main-soft)}
+  .pane-path{font:600 12px/1.4 var(--mono);color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+  .pane-count{margin-left:auto;font-size:11px;color:var(--muted);flex:0 0 auto}
+
+  .list{overflow-y:auto;max-height:56vh;min-height:380px}
+  .row{display:grid;grid-template-columns:34px minmax(0,1fr) auto;align-items:center;gap:10px;
+    padding:9px 11px;border-bottom:1px solid var(--line);cursor:pointer;user-select:none;transition:background .12s}
+  .row:last-child{border-bottom:0}
+  .row:hover{background:var(--surface-2)}
+  .row.sel{background:var(--main-soft);box-shadow:inset 3px 0 0 var(--main)}
+  .row.up .name{color:var(--muted)}
+  .ic{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;font-size:15px;flex:0 0 auto}
+  .ic.folder{background:var(--main-soft);color:var(--main)}
+  .ic.img{background:var(--accent-soft);color:var(--accent)}
+  .ic.txt{background:var(--surface-2);color:var(--text-2);border:1px solid var(--line)}
+  .ic.zip{background:var(--warn-soft);color:var(--warn)}
+  .ic.apk{background:#EAF7EF;color:#1F9D55}
+  .ic.bin{background:#F0EBFF;color:#7048E8}
+  .name{font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .meta{font-size:11px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .size{font:500 11.5px/1 var(--mono);color:var(--muted);white-space:nowrap}
+  .more{opacity:0;transition:opacity .12s}
+  .row:hover .more{opacity:1}
+
+  /* ── 底部导航 ── */
+  .tabbar{position:fixed;left:0;right:0;bottom:0;z-index:30;
+    display:grid;grid-template-columns:repeat(4,1fr);gap:2px;
+    background:rgba(255,255,255,.92);backdrop-filter:blur(12px);border-top:1px solid var(--line);
+    padding:7px 8px calc(7px + env(safe-area-inset-bottom))}
+  .tab{display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 0;border:0;background:transparent;
+    color:var(--muted);font-size:10.5px;font-weight:700;border-radius:10px}
+  .tab .ti{font-size:18px;line-height:1}
+  .tab.on{color:var(--main);background:var(--main-soft)}
+
+  /* ── 长按菜单 ── */
+  .sheet-backdrop{position:fixed;inset:0;z-index:60;background:rgba(20,26,38,.34);backdrop-filter:blur(2px);
+    display:grid;align-items:end}
+  .sheet{background:var(--surface);border-radius:20px 20px 0 0;box-shadow:var(--shadow-lg);
+    padding:10px 12px calc(16px + env(safe-area-inset-bottom));animation:sheetUp .22s cubic-bezier(.2,.8,.3,1)}
+  @keyframes sheetUp{from{transform:translateY(24px);opacity:.4}to{transform:translateY(0);opacity:1}}
+  .sheet-grip{width:38px;height:4px;border-radius:99px;background:var(--line-strong);margin:2px auto 12px}
+  .sheet-title{font-size:13px;font-weight:800;padding:0 6px 10px;border-bottom:1px solid var(--line);margin-bottom:10px;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .sheet-title span{display:block;font:600 11px/1.5 var(--mono);color:var(--muted);font-weight:400;margin-top:3px}
+  .sheet-scroll{max-height:74vh;overflow-y:auto;overscroll-behavior:contain}
+  .grp{margin-bottom:12px}
+  .grp:last-child{margin-bottom:0}
+  .grp-name{display:flex;align-items:center;gap:7px;font-size:11px;font-weight:800;color:var(--muted);
+    letter-spacing:.4px;padding:2px 4px 8px}
+  .grp-name:after{content:"";flex:1;height:1px;background:var(--line)}
+  .acts{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+  .act{display:flex;flex-direction:column;align-items:center;gap:7px;padding:12px 4px;border:1px solid var(--line);
+    background:var(--surface);border-radius:12px;font-size:11.5px;font-weight:700;color:var(--text-2)}
+  .act .ai{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;font-size:16px;background:var(--surface-2)}
+  .act.danger .ai{background:var(--danger-soft);color:var(--danger)}
+  .act.blue .ai{background:var(--main-soft);color:var(--main)}
+  .act.green .ai{background:var(--accent-soft);color:var(--accent)}
+  .act.amber .ai{background:var(--warn-soft);color:var(--warn)}
+  .act:hover{border-color:var(--line-strong);background:var(--surface-2)}
+
+  .toast{position:fixed;left:50%;bottom:96px;z-index:90;transform:translate(-50%,14px);opacity:0;
+    background:#1F2430;color:#fff;font-size:13px;font-weight:600;padding:11px 16px;border-radius:11px;
+    box-shadow:var(--shadow-lg);transition:opacity .18s,transform .18s;pointer-events:none}
+  .toast.on{opacity:1;transform:translate(-50%,0)}
+
+  .note{margin:14px 2px 0;padding:12px 14px;border:1px dashed var(--line-strong);border-radius:12px;
+    background:var(--surface);font-size:12px;color:var(--text-2);line-height:1.7}
+  .note b{color:var(--text)}
+
+  @media (max-width:720px){
+    body{padding:10px 10px calc(84px + env(safe-area-inset-bottom))}
+    .panes{grid-template-columns:1fr}
+    .list{max-height:none;min-height:300px}
+    .acts{grid-template-columns:repeat(4,1fr)}
+    .chips{display:none}
+  }
+</style>
+</head>
+<body>
+
+<header class="app-header">
+  <div class="brand">
+    <div class="brand-logo">xzm</div>
+    <div class="brand-text">
+      <div class="brand-title">xzm 管理器</div>
+      <div class="brand-sub">文件管理 · Root 终端 · 全管理器兼容</div>
+    </div>
+  </div>
+  <div class="chips">
+    <span class="chip root"><span class="dot"></span>Root 已授权</span>
+    <span class="chip">KernelSU</span>
+    <span class="chip">v1.0</span>
+  </div>
+</header>
+
+<div class="toolbar">
+  <button class="icon-btn ghost" title="返回">←</button>
+  <button class="icon-btn ghost" title="前进">→</button>
+  <button class="icon-btn ghost" title="上一级">↑</button>
+  <div class="sep"></div>
+  <button class="primary">＋ 新建</button>
+  <button>复制</button>
+  <button>移动</button>
+  <button class="danger">删除</button>
+  <div class="sep"></div>
+  <button class="icon-btn" title="搜索">🔍</button>
+  <button class="icon-btn" title="刷新">⟳</button>
+  <button class="icon-btn" title="主题">🎨</button>
+</div>
+
+<div class="pathbar">
+  <span class="crumb">
+    <b>/</b><span class="slash">›</span>
+    <b>storage</b><span class="slash">›</span>
+    <b>emulated</b><span class="slash">›</span>
+    <b>0</b>
+  </span>
+  <button class="ghost icon-btn" title="编辑路径">✎</button>
+</div>
+
+<div class="panes">
+  <!-- 左栏 -->
+  <section class="pane active">
+    <div class="pane-head">
+      <span class="pane-tag">左栏</span>
+      <span class="pane-path">/storage/emulated/0</span>
+      <span class="pane-count">12 项</span>
+    </div>
+    <div class="list" id="listL"></div>
+  </section>
+  <!-- 右栏 -->
+  <section class="pane">
+    <div class="pane-head">
+      <span class="pane-tag">右栏</span>
+      <span class="pane-path">/data/adb</span>
+      <span class="pane-count">4 项</span>
+    </div>
+    <div class="list" id="listR"></div>
+  </section>
+</div>
+
+<div class="note">
+  <b>这是界面原型（预览用）。</b>数据是写死的示例，点击/长按有交互效果，但不会真的操作文件。
+  风格确认后，我再补真实的后端 shell 和模块打包。<br>
+  交互：<b>单击</b>选中 · <b>长按</b>弹菜单 · <b>点右侧 ⋯</b>快捷操作 · 底部四个标签切换。
+</div>
+
+<nav class="tabbar">
+  <button class="tab on"><span class="ti">📁</span>文件</button>
+  <button class="tab"><span class="ti">⌨️</span>终端</button>
+  <button class="tab"><span class="ti">🔖</span>书签</button>
+  <button class="tab"><span class="ti">⚙️</span>设置</button>
+</nav>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const ICON = {folder:'ic folder',img:'ic img',txt:'ic txt',zip:'ic zip',apk:'ic apk',bin:'ic bin'};
+const GLYPH = {folder:'📁',img:'🖼️',txt:'📄',zip:'🗜️',apk:'📦',bin:'⚙️'};
+
+const DATA_L = [
+  {n:'..',t:'up',size:'',meta:'上一级'},
+  {n:'Android',t:'folder',size:'',meta:'文件夹 · 6 项'},
+  {n:'DCIM',t:'folder',size:'',meta:'文件夹 · 128 项'},
+  {n:'Download',t:'folder',size:'',meta:'文件夹 · 24 项'},
+  {n:'Pictures',t:'folder',size:'',meta:'文件夹 · 812 项'},
+  {n:'Documents',t:'folder',size:'',meta:'文件夹 · 9 项'},
+  {n:'xzm管理器-v1.0.zip',t:'zip',size:'2.9 MB',meta:'2026-10-12 12:45 · root:root 0644'},
+  {n:'xzm_manager.apk',t:'apk',size:'846 KB',meta:'2026-10-12 12:40 · root:root 0644'},
+  {n:'notes.md',t:'txt',size:'4.2 KB',meta:'2026-10-11 22:10 · root:root 0644'},
+  {n:'wallpaper.jpg',t:'img',size:'1.8 MB',meta:'2026-10-05 09:31 · root:root 0644'},
+  {n:'busybox',t:'bin',size:'2.1 MB',meta:'2026-09-28 20:02 · root:root 0755'},
+  {n:'install.sh',t:'txt',size:'1.1 KB',meta:'2026-10-12 12:45 · root:root 0755'},
+];
+const DATA_R = [
+  {n:'..',t:'up',size:'',meta:'上一级'},
+  {n:'modules',t:'folder',size:'',meta:'文件夹 · 3 项'},
+  {n:'ksud',t:'bin',size:'14 MB',meta:'2026-09-01 03:12 · root:root 0755'},
+  {n:'xzm_manager',t:'folder',size:'',meta:'文件夹 · 7 项'},
+];
+
+function rowHTML(it){
+  const cls = it.t==='up' ? 'row up' : 'row';
+  const ic  = it.t==='up' ? 'ic txt' : ICON[it.t];
+  const g   = it.t==='up' ? '↰' : GLYPH[it.t];
+  return `<div class="${cls}" data-name="${it.n}">
+    <div class="${ic}">${g}</div>
+    <div style="min-width:0">
+      <div class="name">${it.n}</div>
+      <div class="meta">${it.meta||''}</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <span class="size">${it.size||''}</span>
+      <button class="more ghost icon-btn" data-more="${it.n}" style="width:30px;height:30px;font-size:17px">⋯</button>
+    </div>
+  </div>`;
+}
+function render(el,data){ el.innerHTML = data.map(rowHTML).join(''); }
+render(document.getElementById('listL'),DATA_L);
+render(document.getElementById('listR'),DATA_R);
+
+/* 选中 / 长按 */
+document.querySelectorAll('.pane').forEach(pane=>{
+  const list = pane.querySelector('.list');
+  list.addEventListener('click',e=>{
+    document.querySelectorAll('.pane').forEach(p=>p.classList.remove('active'));
+    pane.classList.add('active');
+    const row = e.target.closest('.row'); if(!row) return;
+    list.querySelectorAll('.row').forEach(r=>r.classList.remove('sel'));
+    row.classList.add('sel');
+    if(e.target.closest('.more')){ openSheet(row.dataset.name); return; }
+    toast('已选中：'+row.dataset.name);
+  });
+  let timer=null;
+  list.addEventListener('touchstart',e=>{
+    const row=e.target.closest('.row'); if(!row) return;
+    timer=setTimeout(()=>openSheet(row.dataset.name),450);
+  },{passive:true});
+  ['touchend','touchmove','touchcancel'].forEach(ev=>list.addEventListener(ev,()=>clearTimeout(timer),{passive:true}));
+});
+
+/* 长按菜单 */
+const sheet = document.createElement('div');
+sheet.className='sheet-backdrop'; sheet.style.display='none';
+sheet.innerHTML=`<div class="sheet">
+  <div class="sheet-grip"></div>
+  <div class="sheet-title">文件操作<span>点击外部关闭 · 这是原型演示，按 MT 分类整理</span></div>
+  <div class="sheet-scroll">
+
+    <div class="grp">
+      <div class="grp-name">基础操作</div>
+      <div class="acts">
+        <button class="act blue"><span class="ai">⧉</span>复制到对栏</button>
+        <button class="act blue"><span class="ai">➦</span>移动到对栏</button>
+        <button class="act amber"><span class="ai">✎</span>重命名</button>
+        <button class="act"><span class="ai">🔗</span>创建副本</button>
+        <button class="act"><span class="ai">🗑</span>删除</button>
+        <button class="act"><span class="ai">📋</span>复制路径</button>
+        <button class="act"><span class="ai">↗</span>分享</button>
+        <button class="act amber"><span class="ai">🔖</span>加书签</button>
+      </div>
+    </div>
+
+    <div class="grp">
+      <div class="grp-name">打开 / 查看</div>
+      <div class="acts">
+        <button class="act green"><span class="ai">👁</span>查看</button>
+        <button class="act green"><span class="ai">🎯</span>打开方式</button>
+        <button class="act green"><span class="ai">📝</span>文本编辑</button>
+        <button class="act green"><span class="ai">ℹ️</span>属性</button>
+        <button class="act green"><span class="ai">#️⃣</span>文件校验</button>
+        <button class="act green"><span class="ai">🧩</span>反编译</button>
+        <button class="act green"><span class="ai">🔤</span>十六进制</button>
+        <button class="act green"><span class="ai">▶️</span>运行脚本</button>
+      </div>
+    </div>
+
+    <div class="grp">
+      <div class="grp-name">压缩包</div>
+      <div class="acts">
+        <button class="act amber"><span class="ai">🗜️</span>压缩为 ZIP</button>
+        <button class="act amber"><span class="ai">🗜️</span>压缩为 7Z</button>
+        <button class="act amber"><span class="ai">📤</span>解压到当前</button>
+        <button class="act amber"><span class="ai">📂</span>解压到…</button>
+        <button class="act amber"><span class="ai">➕</span>添加到压缩包</button>
+        <button class="act amber"><span class="ai">📥</span>从压缩包提取</button>
+      </div>
+    </div>
+
+    <div class="grp">
+      <div class="grp-name">权限 / 属主（Root）</div>
+      <div class="acts">
+        <button class="act blue"><span class="ai">🔐</span>修改权限</button>
+        <button class="act blue"><span class="ai">👤</span>所有者/用户组</button>
+        <button class="act blue"><span class="ai">♻️</span>递归应用</button>
+        <button class="act blue"><span class="ai">🧬</span>SELinux 上下文</button>
+      </div>
+    </div>
+
+    <div class="grp">
+      <div class="grp-name">多选</div>
+      <div class="acts">
+        <button class="act"><span class="ai">✓</span>全选</button>
+        <button class="act"><span class="ai">⇄</span>反选</button>
+        <button class="act"><span class="ai">🗂️</span>类选</button>
+      </div>
+    </div>
+
+  </div></div>`;
+document.body.appendChild(sheet);
+sheet.addEventListener('click',e=>{ if(e.target===sheet) closeSheet(); });
+document.querySelectorAll('.act').forEach(a=>a.addEventListener('click',()=>{ toast('原型：'+a.textContent.trim()); closeSheet(); }));
+
+function openSheet(name){
+  sheet.querySelector('.sheet-title').firstChild.textContent=name;
+  sheet.style.display='grid';
+}
+function closeSheet(){ sheet.style.display='none'; }
+
+/* 标签 & 提示 */
+document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));
+  t.classList.add('on');
+  toast('切换：'+t.textContent.trim());
+}));
+let tt=null;
+function toast(msg){
+  const el=document.getElementById('toast'); el.textContent=msg; el.classList.add('on');
+  clearTimeout(tt); tt=setTimeout(()=>el.classList.remove('on'),1600);
+}
+</script>
+</body>
+</html>

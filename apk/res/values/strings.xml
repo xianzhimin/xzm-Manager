@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">xzm 管理器</string>
+    <string name="notif_text">点击打开管理界面</string>
+    <string name="act_open">打开管理界面</string>
+    <string name="act_term">终端</string>
+</resources>
