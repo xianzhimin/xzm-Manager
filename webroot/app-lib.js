@@ -321,3 +321,19 @@ let envName = '检测中';
     setTimeout(()=>{ var el=document.getElementById('bootProbe'); if(el && !el.textContent.match(/ERR|错误/)) el.style.display='none'; }, 3000);
   })();
 })();
+
+/* 同步底部导航实际高度到 CSS 变量 --tabh，保证页面底部预留与 tabbar 一致（不被遮挡） */
+(function syncTabbarHeight(){
+  function apply(){
+    try{
+      var t = document.querySelector('.tabbar');
+      if(!t) return;
+      var h = Math.round(t.getBoundingClientRect().height);
+      if(h > 0) document.documentElement.style.setProperty('--tabh', h + 'px');
+    }catch(e){}
+  }
+  if(document.readyState === 'complete') apply();
+  else window.addEventListener('load', apply);
+  window.addEventListener('resize', apply);
+  window.addEventListener('orientationchange', ()=>setTimeout(apply, 300));
+})();
