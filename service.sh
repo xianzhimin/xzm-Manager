@@ -66,6 +66,11 @@ if [ -f "$MODDIR/bin/xzm-notify.sh" ]; then
   cp -f "$MODDIR/bin/xzm-notify.sh" "$DATA_DIR/bin/xzm-notify.sh" 2>/dev/null
   chmod 0755 "$DATA_DIR/bin/xzm-notify.sh" 2>/dev/null
 fi
+# 复制看门狗脚本
+if [ -f "$MODDIR/bin/xzm-notify-watchdog.sh" ]; then
+  cp -f "$MODDIR/bin/xzm-notify-watchdog.sh" "$DATA_DIR/bin/xzm-notify-watchdog.sh" 2>/dev/null
+  chmod 0755 "$DATA_DIR/bin/xzm-notify-watchdog.sh" 2>/dev/null
+fi
 
 # 后台延迟：提取 intent_token（APK 部署交给 /data/adb/boot-completed.d/xzm_manager.sh）
 (
@@ -104,4 +109,10 @@ fi
 (
   sleep 12
   [ -f "$DATA_DIR/bin/xzm-notify.sh" ] && sh "$DATA_DIR/bin/xzm-notify.sh" on >> "$DATA_DIR/logs/notify.log" 2>&1
+) &
+
+# ── 看门狗：划掉后台/系统清后台后自动重拉通知 ──
+(
+  sleep 20
+  [ -f "$DATA_DIR/bin/xzm-notify-watchdog.sh" ] && sh "$DATA_DIR/bin/xzm-notify-watchdog.sh" start >> "$DATA_DIR/logs/notify-watchdog.log" 2>&1
 ) &
