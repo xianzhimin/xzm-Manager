@@ -67,7 +67,7 @@ async function saveBookmarks(){
 function addBookmark(path){
   if(state.bookmarks.includes(path)) return toast('已存在书签');
   state.bookmarks.push(path);
-  saveBookmarks().then(()=>toast('已添加书签','ok'));
+  saveBookmarks().then(()=>toast('已添加书签','ok')).catch(e=>{ try{ toast('书签保存失败: '+(e&&e.message||e),'err'); }catch(_){} });
 }
 function renderBookmarks(){
   const el = $('bookList');
@@ -263,10 +263,21 @@ let envName = '检测中';
 
   // 2) 全局错误兜底，直接显示在界面上，方便排查
   window.addEventListener('error', ev=>{
-    try{ toast('脚本错误: ' + (ev.message||ev.error), 'err'); }catch(_){}
+    try{
+      var m = '脚本错误: ' + (ev.message||ev.error);
+      window.__xzmLastErr = m + ' @' + (ev.filename||'') + ':' + (ev.lineno||'');
+      toast(m, 'err');
+    }catch(_){}
   });
   window.addEventListener('unhandledrejection', ev=>{
-    try{ toast('异步错误: ' + (ev.reason && ev.reason.message || ev.reason), 'err'); }catch(_){}
+    try{
+      var r = ev.reason;
+      var msg = (r && (r.message || r.stack)) || String(r);
+      window.__xzmLastErr = '异步错误: ' + msg;
+      toast('异步错误: ' + (r && r.message || r), 'err');
+      // 写诊断日志（走 cgi，失败静默），便于下次真机排查
+      try{ if(typeof sh==='function') sh('echo "[xzm-js-err $(date)] "+"'+String(msg).replace(/['"\\\n\r]/g,' ').slice(0,300)+'" >> /data/local/tmp/xzm-js-err.log 2>&1'); }catch(_){}
+    }catch(_){}
   });
   step('handlers-ok');
 

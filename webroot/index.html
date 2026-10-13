@@ -6,7 +6,7 @@
 <title>xzm 管理器</title>
 <script>
 /* 启动探针：在任何主逻辑前运行，把关键状态写进页面，方便定位崩溃点 */
-window.__XZM_BOOT__ = { ver:'1.0.52', t:Date.now(), steps:[] };
+window.__XZM_BOOT__ = { ver:'1.0.53', t:Date.now(), steps:[] };
 window.__xzmStep = function(s){ try{ window.__XZM_BOOT__.steps.push(s); var el=document.getElementById('bootProbe'); if(el) el.textContent = '构建 ' + window.__XZM_BOOT__.ver + ' | 启动: ' + window.__XZM_BOOT__.steps.join(' → '); }catch(e){} };
 window.addEventListener('error', function(e){
   try{
@@ -324,7 +324,7 @@ window.__xzmStep('head-ok');
   </div>
   <div class="chips">
     <span class="chip" id="chipEnv">检测中…</span>
-    <span class="chip" id="chipVer">v1.0.52</span>
+    <span class="chip" id="chipVer">v1.0.53</span>
   </div>
 </header>
 
@@ -918,7 +918,7 @@ document.querySelectorAll('.tab').forEach(tab=>{
     try{ switchPage(page); }catch(e){}
     // 终端页：#term 直达时自动拉起终端（ttyd）
     if(page==='term' && typeof startTerminal==='function'){
-      setTimeout(()=>{ try{ startTerminal(); }catch(e){} }, 400);
+      setTimeout(()=>{ Promise.resolve().then(()=>startTerminal()).catch(e=>{ try{ console.error('startTerminal',e); toast('终端启动失败: '+(e&&e.message||e),'err'); }catch(_){} }); }, 400);
     }
   }
   function applyHash(){
@@ -945,7 +945,7 @@ document.querySelectorAll('.tab').forEach(tab=>{
           const doGo=()=>{
             go(page);
             if(page==='term' && typeof startTerminal==='function'){
-              setTimeout(()=>{ try{ startTerminal(); }catch(e){} }, 300);
+              setTimeout(()=>{ Promise.resolve().then(()=>startTerminal()).catch(e=>{ try{ console.error('startTerminal',e); }catch(_){} }); }, 300);
             }
           };
           if(document.readyState==='complete') setTimeout(doGo,50); else window.addEventListener('load',doGo);
@@ -1132,7 +1132,7 @@ async function opCopy(side, name){
   if(r.ok){ toast('已复制到 '+dst, 'ok'); refreshBoth(); }
   else if(r.conflict){
     confirmDlg('目标已存在', `「${name}」在目标栏已存在，是否覆盖？`, ()=>{
-      ctl('copy',[src,dst,'1']).then(r2=>{ if(r2.ok){toast('已覆盖复制','ok');refreshBoth();} else toast(r2.error,'err'); });
+      ctl('copy',[src,dst,'1']).then(r2=>{ if(r2.ok){toast('已覆盖复制','ok');refreshBoth();} else toast(r2.error,'err'); }).catch(e=>{ try{toast('复制失败: '+(e&&e.message||e),'err');}catch(_){} });
     });
   } else toast(r.error||'复制失败','err');
 }
@@ -1144,7 +1144,7 @@ async function opMove(side, name){
   if(r.ok){ toast('已移动到 '+dst, 'ok'); refreshBoth(); }
   else if(r.conflict){
     confirmDlg('目标已存在', `「${name}」在目标栏已存在，是否覆盖？`, ()=>{
-      ctl('move',[src,dst,'1']).then(r2=>{ if(r2.ok){toast('已覆盖移动','ok');refreshBoth();} else toast(r2.error,'err'); });
+      ctl('move',[src,dst,'1']).then(r2=>{ if(r2.ok){toast('已覆盖移动','ok');refreshBoth();} else toast(r2.error,'err'); }).catch(e=>{ try{toast('移动失败: '+(e&&e.message||e),'err');}catch(_){} });
     });
   } else toast(r.error||'移动失败','err');
 }
@@ -1668,7 +1668,7 @@ $('btnSync').addEventListener('click', ()=>{
     } else {
       toast('已同步到' + (o==='A'?'左栏':'右栏'), 'ok');
     }
-  });
+  }).catch(e=>{ try{ toast('同步失败: '+(e&&e.message||e),'err'); }catch(_){} });
 });
 $('btnEditPath').addEventListener('click', ()=>{
   const inp = $('pathInput');
@@ -1814,16 +1814,20 @@ function runDlg(filePath){
   const flat = {};
   groups.forEach(([g,items])=>items.forEach((it,i)=>flat[g+'_'+i]=it[3]));
   $('sheetActs').querySelectorAll('.act').forEach(btn=>{
-    btn.addEventListener('click',()=>{ const fn=flat[btn.dataset.g+'_'+btn.dataset.i]; closeSheet(); if(fn)fn(); });
+    btn.addEventListener('click',()=>{ const fn=flat[btn.dataset.g+'_'+btn.dataset.i]; closeSheet(); if(fn){ try{ Promise.resolve(fn()).catch(e=>{ try{ console.error('sheet action',e); toast('操作失败: '+(e&&e.message||e),'err'); }catch(_){} }); }catch(e){ try{ toast('操作失败: '+(e&&e.message||e),'err'); }catch(_){} } } });
   });
   $('sheetBk').classList.add('on');
 }
 
 /* 在终端页里运行文件（JieMoSi 式：把目标作为 ttyd shell 参数，重启终端直接跑） */
 async function openInTerminal(filePath){
-  switchPage('term');
-  toast('正在启动终端并运行…');
-  await startTerminal(filePath);
+  try{
+    switchPage('term');
+    toast('正在启动终端并运行…');
+    await startTerminal(filePath);
+  }catch(e){
+    try{ console.error('openInTerminal', e); toast('终端启动失败: ' + (e && e.message || e), 'err'); }catch(_){}
+  }
 }
 
 /* ===== app-lib.js ===== */
@@ -1896,7 +1900,7 @@ async function saveBookmarks(){
 function addBookmark(path){
   if(state.bookmarks.includes(path)) return toast('已存在书签');
   state.bookmarks.push(path);
-  saveBookmarks().then(()=>toast('已添加书签','ok'));
+  saveBookmarks().then(()=>toast('已添加书签','ok')).catch(e=>{ try{ toast('书签保存失败: '+(e&&e.message||e),'err'); }catch(_){} });
 }
 function renderBookmarks(){
   const el = $('bookList');
@@ -2092,10 +2096,21 @@ let envName = '检测中';
 
   // 2) 全局错误兜底，直接显示在界面上，方便排查
   window.addEventListener('error', ev=>{
-    try{ toast('脚本错误: ' + (ev.message||ev.error), 'err'); }catch(_){}
+    try{
+      var m = '脚本错误: ' + (ev.message||ev.error);
+      window.__xzmLastErr = m + ' @' + (ev.filename||'') + ':' + (ev.lineno||'');
+      toast(m, 'err');
+    }catch(_){}
   });
   window.addEventListener('unhandledrejection', ev=>{
-    try{ toast('异步错误: ' + (ev.reason && ev.reason.message || ev.reason), 'err'); }catch(_){}
+    try{
+      var r = ev.reason;
+      var msg = (r && (r.message || r.stack)) || String(r);
+      window.__xzmLastErr = '异步错误: ' + msg;
+      toast('异步错误: ' + (r && r.message || r), 'err');
+      // 写诊断日志（走 cgi，失败静默），便于下次真机排查
+      try{ if(typeof sh==='function') sh('echo "[xzm-js-err $(date)] "+"'+String(msg).replace(/['"\\\n\r]/g,' ').slice(0,300)+'" >> /data/local/tmp/xzm-js-err.log 2>&1'); }catch(_){}
+    }catch(_){}
   });
   step('handlers-ok');
 

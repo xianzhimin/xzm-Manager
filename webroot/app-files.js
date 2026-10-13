@@ -214,7 +214,7 @@ document.querySelectorAll('.tab').forEach(tab=>{
     try{ switchPage(page); }catch(e){}
     // 终端页：#term 直达时自动拉起终端（ttyd）
     if(page==='term' && typeof startTerminal==='function'){
-      setTimeout(()=>{ try{ startTerminal(); }catch(e){} }, 400);
+      setTimeout(()=>{ Promise.resolve().then(()=>startTerminal()).catch(e=>{ try{ console.error('startTerminal',e); toast('终端启动失败: '+(e&&e.message||e),'err'); }catch(_){} }); }, 400);
     }
   }
   function applyHash(){
@@ -241,7 +241,7 @@ document.querySelectorAll('.tab').forEach(tab=>{
           const doGo=()=>{
             go(page);
             if(page==='term' && typeof startTerminal==='function'){
-              setTimeout(()=>{ try{ startTerminal(); }catch(e){} }, 300);
+              setTimeout(()=>{ Promise.resolve().then(()=>startTerminal()).catch(e=>{ try{ console.error('startTerminal',e); }catch(_){} }); }, 300);
             }
           };
           if(document.readyState==='complete') setTimeout(doGo,50); else window.addEventListener('load',doGo);

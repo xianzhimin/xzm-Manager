@@ -105,7 +105,7 @@ async function opCopy(side, name){
   if(r.ok){ toast('已复制到 '+dst, 'ok'); refreshBoth(); }
   else if(r.conflict){
     confirmDlg('目标已存在', `「${name}」在目标栏已存在，是否覆盖？`, ()=>{
-      ctl('copy',[src,dst,'1']).then(r2=>{ if(r2.ok){toast('已覆盖复制','ok');refreshBoth();} else toast(r2.error,'err'); });
+      ctl('copy',[src,dst,'1']).then(r2=>{ if(r2.ok){toast('已覆盖复制','ok');refreshBoth();} else toast(r2.error,'err'); }).catch(e=>{ try{toast('复制失败: '+(e&&e.message||e),'err');}catch(_){} });
     });
   } else toast(r.error||'复制失败','err');
 }
@@ -117,7 +117,7 @@ async function opMove(side, name){
   if(r.ok){ toast('已移动到 '+dst, 'ok'); refreshBoth(); }
   else if(r.conflict){
     confirmDlg('目标已存在', `「${name}」在目标栏已存在，是否覆盖？`, ()=>{
-      ctl('move',[src,dst,'1']).then(r2=>{ if(r2.ok){toast('已覆盖移动','ok');refreshBoth();} else toast(r2.error,'err'); });
+      ctl('move',[src,dst,'1']).then(r2=>{ if(r2.ok){toast('已覆盖移动','ok');refreshBoth();} else toast(r2.error,'err'); }).catch(e=>{ try{toast('移动失败: '+(e&&e.message||e),'err');}catch(_){} });
     });
   } else toast(r.error||'移动失败','err');
 }
@@ -641,7 +641,7 @@ $('btnSync').addEventListener('click', ()=>{
     } else {
       toast('已同步到' + (o==='A'?'左栏':'右栏'), 'ok');
     }
-  });
+  }).catch(e=>{ try{ toast('同步失败: '+(e&&e.message||e),'err'); }catch(_){} });
 });
 $('btnEditPath').addEventListener('click', ()=>{
   const inp = $('pathInput');
@@ -787,14 +787,18 @@ function runDlg(filePath){
   const flat = {};
   groups.forEach(([g,items])=>items.forEach((it,i)=>flat[g+'_'+i]=it[3]));
   $('sheetActs').querySelectorAll('.act').forEach(btn=>{
-    btn.addEventListener('click',()=>{ const fn=flat[btn.dataset.g+'_'+btn.dataset.i]; closeSheet(); if(fn)fn(); });
+    btn.addEventListener('click',()=>{ const fn=flat[btn.dataset.g+'_'+btn.dataset.i]; closeSheet(); if(fn){ try{ Promise.resolve(fn()).catch(e=>{ try{ console.error('sheet action',e); toast('操作失败: '+(e&&e.message||e),'err'); }catch(_){} }); }catch(e){ try{ toast('操作失败: '+(e&&e.message||e),'err'); }catch(_){} } } });
   });
   $('sheetBk').classList.add('on');
 }
 
 /* 在终端页里运行文件（JieMoSi 式：把目标作为 ttyd shell 参数，重启终端直接跑） */
 async function openInTerminal(filePath){
-  switchPage('term');
-  toast('正在启动终端并运行…');
-  await startTerminal(filePath);
+  try{
+    switchPage('term');
+    toast('正在启动终端并运行…');
+    await startTerminal(filePath);
+  }catch(e){
+    try{ console.error('openInTerminal', e); toast('终端启动失败: ' + (e && e.message || e), 'err'); }catch(_){}
+  }
 }
