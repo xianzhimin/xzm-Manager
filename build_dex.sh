@@ -13,7 +13,8 @@ echo "android.jar = $ANDROID_JAR"
 echo "d8          = $D8"
 
 mkdir -p apk_java/build
-javac --release 8 -cp "$ANDROID_JAR" -d apk_java/build apk_java/AppLister.java
-"$D8" --min-api 24 --output apk_java/build apk_java/build/AppLister.class
+javac --release 8 -cp "$ANDROID_JAR" -d apk_java/build apk_java/AppLister.java apk_java/NameConv.java
+"$D8" --min-api 24 --output apk_java/build \
+  apk_java/build/AppLister.class apk_java/build/NameConv.class
 cp apk_java/build/classes.dex bin/applister.dex
 echo "✅ 生成 bin/applister.dex ($(wc -c < bin/applister.dex) 字节)"

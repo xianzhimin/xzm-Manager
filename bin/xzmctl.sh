@@ -568,7 +568,24 @@ cmd_archive_list() {
   esac
   local items; items="$(cat "$odd.j" 2>/dev/null)"
   rm -f "$odd" "$odd.j" 2>/dev/null
+  # 非 UTF-8 文件名（Windows GBK zip 常见）→ 用 NameConv 转码，避免乱码
+  items="$(fix_archive_names "$items")"
   printf '{"ok":true,"kind":"%s","items":[%s]}\n' "$kind" "$items"
+}
+
+# 修正 items JSON 里非 UTF-8 的条目名（GBK→UTF-8）。失败则原样返回。
+fix_archive_names() {
+  local json="$1" dex clsp
+  [ -z "$json" ] && { printf ''; return; }
+  # 找一个可用的 classes.dex（含 NameConv）
+  dex=""
+  for d in "$EXT_BIN/applister.dex" "$DATA_DIR/bin/applister.dex" "$MODDIR/bin/applister.dex"; do
+    [ -f "$d" ] && { dex="$d"; break; }
+  done
+  [ -z "$dex" ] && { printf '%s' "$json"; return; }
+  local out
+  out="$(printf '%s' "$json" | CLASSPATH="$dex" app_process /system/bin NameConv fixjson GBK 2>/dev/null)"
+  if [ -n "$out" ]; then printf '%s' "$out"; else printf '%s' "$json"; fi
 }
 
 # archive-read <archive> <entryBase64>  —— 解出单个条目到 stdout（用于预览）
