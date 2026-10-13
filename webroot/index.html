@@ -6,7 +6,7 @@
 <title>xzm 管理器</title>
 <script>
 /* 启动探针：在任何主逻辑前运行，把关键状态写进页面，方便定位崩溃点 */
-window.__XZM_BOOT__ = { ver:'1.0.55', t:Date.now(), steps:[] };
+window.__XZM_BOOT__ = { ver:'1.0.56', t:Date.now(), steps:[] };
 window.__xzmStep = function(s){ try{ window.__XZM_BOOT__.steps.push(s); var el=document.getElementById('bootProbe'); if(el) el.textContent = '构建 ' + window.__XZM_BOOT__.ver + ' | 启动: ' + window.__XZM_BOOT__.steps.join(' → '); }catch(e){} };
 window.addEventListener('error', function(e){
   try{
@@ -327,7 +327,7 @@ window.__xzmStep('head-ok');
   </div>
   <div class="chips">
     <span class="chip" id="chipEnv">检测中…</span>
-    <span class="chip" id="chipVer">v1.0.55</span>
+    <span class="chip" id="chipVer">v1.0.56</span>
   </div>
 </header>
 
@@ -1368,8 +1368,16 @@ async function loadApps(){
   const list = $('appList'); if(!list) return;
   list.innerHTML = '<div class="arc-empty">读取中…</div>';
   let r;
-  try{ r = await ctl('list-apps-full',['72']); }
+  try{ r = await ctl('list-apps-full',['56']); }
   catch(e){ list.innerHTML = '<div class="arc-empty">读取失败：'+esc(String(e))+'</div>'; return; }
+  // 若拿到的条目都在但图标全空（响应过大被截断 / 生成失败），退化为无图标模式重试
+  if(r && r.ok && (r.apps||[]).length){
+    const n = r.apps.length;
+    const withIcon = r.apps.filter(a=>a && a.icon).length;
+    if(withIcon === 0){
+      try{ const r2 = await ctl('list-apps-full',['56','noicon']); if(r2 && r2.ok && (r2.apps||[]).length) r = r2; }catch(e){}
+    }
+  }
   if(!r || !r.ok){
     // 退化到仅包名
     try{ r = await ctl('list-apps',[]); }catch(e){}
@@ -2023,13 +2031,14 @@ async function _startTerminal(target){
   const launch =
     `mkdir -p ${MODDATA}/logs /data/local/tmp 2>/dev/null; ` +
     `echo "=== launch $(date) target='${esc}' ===" >> /data/local/tmp/xzm-ttyd.log 2>&1; ` +
-    `pgrep -x ttyd >/dev/null 2>&1 && killall ttyd 2>/dev/null; ` +
+    `pgrep -x ttyd >/dev/null 2>&1 && (killall ttyd 2>/dev/null || pkill -x ttyd 2>/dev/null); ` +
     `sleep 0.3; ` +
     `cd ${MODDATA}; ` +
-    `( setsid ${MODDATA}/bin/ttyd -p ${TERM_PORT} -i 0.0.0.0 -W -w /data/adb ` +
+    `SETSID=""; command -v setsid >/dev/null 2>&1 && SETSID="setsid"; ` +
+    `nohup $SETSID ${MODDATA}/bin/ttyd -p ${TERM_PORT} -i 0.0.0.0 -W -w /data/adb ` +
     `${MODDATA}/bin/xzm-shell.sh ${target ? "'"+esc+"'" : "''"} ` +
-    `</dev/null >>${MODDATA}/logs/ttyd.log 2>>/data/local/tmp/xzm-ttyd.log & ) ; ` +
-    `sleep 0.5; ` +
+    `</dev/null >>${MODDATA}/logs/ttyd.log 2>>/data/local/tmp/xzm-ttyd.log & ` +
+    `sleep 0.6; ` +
     `echo "after-launch pgrep:"; pgrep -x ttyd || echo none; ` +
     `echo DONE`;
   // 不 await 这条（可能因后台任务不返回），用竞速超时

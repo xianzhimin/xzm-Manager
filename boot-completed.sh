@@ -65,7 +65,7 @@ if [ -f "$APK" ] && ! pm path "$PKG" >/dev/null 2>&1; then
     cp -f "$APK" "$TMPAPK" 2>/dev/null
     chmod 0644 "$TMPAPK" 2>/dev/null
     attempt=1
-    while [ "$attempt" -le 5 ]; do
+    while [ "$attempt" -le 8 ]; do
         RES=$(pm install -r -g "$TMPAPK" 2>&1)
         log "install attempt $attempt: $RES"
         if pm path "$PKG" >/dev/null 2>&1; then
@@ -76,6 +76,8 @@ if [ -f "$APK" ] && ! pm path "$PKG" >/dev/null 2>&1; then
         sleep 5
         attempt=$((attempt + 1))
     done
+else
+    [ -f "$APK" ] || log "payload apk missing at $APK (will be redeployed by service.sh)"
 fi
 
 # 2) 通知权限（MIUI 需 pm grant + appops set 两者都做；且首次可能不生效，需验证重试）
@@ -97,9 +99,22 @@ fi
 
 # 3) 拉起前台服务（常驻通知）
 if pm path "$PKG" >/dev/null 2>&1; then
-    RES=$(am start-foreground-service -n "$PKG/.NotifyService" 2>&1)
-    [ $? -ne 0 ] && RES=$(am startservice -n "$PKG/.NotifyService" 2>&1)
-    log "start service: $RES"
+    ok=0
+    stry=1
+    while [ "$stry" -le 4 ]; do
+        RES=$(am start-foreground-service -n "$PKG/.NotifyService" 2>&1)
+        case "$RES" in
+            *Error*|*"not exported"*|*"does not exist"*|*"Permission"*) : ;;
+            *) ok=1 ;;
+        esac
+        # 前台服务起来后，通知即在列表里
+        if cmd notification list 2>/dev/null | grep -q "$PKG"; then ok=1; break; fi
+        [ $? -ne 0 ] && RES=$(am startservice -n "$PKG/.NotifyService" 2>&1)
+        log "start service attempt $stry: $RES"
+        sleep 3
+        stry=$((stry + 1))
+    done
+    [ "$ok" = "1" ] && log "start service OK" || log "start service FAILED after retries"
     log "deployment done"
 else
     # 兜底：老式 cmd notification

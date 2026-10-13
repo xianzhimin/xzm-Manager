@@ -17,14 +17,12 @@ CH_ID=xzm_manager
 log(){ echo "[$(date '+%H:%M:%S')] $*" >> "$LOG" 2>/dev/null; }
 
 # ── 找管理器包名 + 主 Activity ──
-# KernelSU 系一律用 me.weishu.kernelsu；MMRL 为 com.dergoogler.mmrl
+# SukiSU Ultra=com.sukisu.ultra；KernelSU=me.weishu.kernelsu；MMRL=com.dergoogler.mmrl；APatch=me.bmax.apatch
 detect_manager(){
   PM=$(command -v pm || echo /system/bin/pm)
-  for p in me.weishu.kernelsu com.dergoogler.mmrl; do
-    if "$PM" path "$p" >/dev/null 2>&1; then echo "$p"; return; fi
-  done
-  # APatch 通常也复用 weishu 包名；再兜底扫一遍
-  for p in com.apatch com.apatch.next me.bmax.apatch; do
+  for p in com.sukisu.ultra com.sukisu.ultra.susfs com.sukisu.ultra.superkey \
+           me.weishu.kernelsu com.dergoogler.mmrl \
+           me.bmax.apatch com.apatch com.apatch.next ; do
     if "$PM" path "$p" >/dev/null 2>&1; then echo "$p"; return; fi
   done
   echo ""
@@ -32,11 +30,15 @@ detect_manager(){
 
 # ── 打开 WebUI ──
 open_webui(){
+  # 0) 首选伴随 APK 的深链（最稳，直接进 WebUIActivity）
+  if pm path com.xzm.launcher >/dev/null 2>&1; then
+    am start -a android.intent.action.VIEW -d "xzmlaunch://open" -n com.xzm.launcher/.MainActivity >/dev/null 2>&1 && { log "opened via apk deeplink"; return 0; }
+    am start -n com.xzm.launcher/.MainActivity >/dev/null 2>&1 && { log "opened apk main"; return 0; }
+  fi
   M=$(detect_manager)
   log "open_webui manager=$M"
-  # 1) 首选 ksu://webui 深链（KernelSU 系）
+  # 1) ksu://webui 深链（KernelSU / SukiSU 系）
   if [ -n "$M" ]; then
-    # 直接拉起具体 WebUI Activity（部分管理器 exported=false，需用 am start -n 在 root 下可行）
     am start -a android.intent.action.VIEW -d "ksu://webui/xzm_manager" \
       -n "$M/.ui.MainActivity" >/dev/null 2>&1 && { log "opened via ksu://webui"; return 0; }
     am start -a android.intent.action.VIEW -d "ksu://webui/xzm_manager" >/dev/null 2>&1 && { log "opened via ksu://webui(implicit)"; return 0; }
@@ -44,7 +46,8 @@ open_webui(){
     am start -n "$M/.ui.MainActivity" >/dev/null 2>&1 && { log "opened manager main"; return 0; }
     monkey -p "$M" -c android.intent.category.LAUNCHER 1 >/dev/null 2>&1 && { log "opened via monkey"; return 0; }
   fi
-  log "no manager detected; fallback open terminal"
+  log "no entry; fallback open browser to local webui"
+  am start -a android.intent.action.VIEW -d "http://127.0.0.1:7690/" >/dev/null 2>&1 && { log "opened in browser"; return 0; }
   return 1
 }
 

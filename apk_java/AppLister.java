@@ -19,6 +19,8 @@ public class AppLister {
         int iconPx = 96;
         if (args.length > 0) { try { iconPx = Integer.parseInt(args[0]); } catch (Exception e) {} }
         String filter = args.length > 1 ? args[1] : null;
+        // 第三个参数 "noicon" → 不生成图标（体积小，弱设备兜底）
+        boolean noIcon = args.length > 2 && "noicon".equals(args[2]);
 
         try {
             android.os.Looper.prepare();
@@ -46,10 +48,12 @@ public class AppLister {
                 String ver = "";
                 try { ver = String.valueOf(pm.getPackageInfo(ai.packageName, 0).versionName); } catch (Throwable t) {}
                 String icon = "";
-                try {
-                    Drawable d = pm.getApplicationIcon(ai);
-                    icon = drawableToDataUri(d, iconPx);
-                } catch (Throwable t) {}
+                if (!noIcon) {
+                    try {
+                        Drawable d = pm.getApplicationIcon(ai);
+                        icon = drawableToDataUri(d, iconPx);
+                    } catch (Throwable t) {}
+                }
                 if (!first) out.append(",");
                 first = false;
                 out.append("{\"pkg\":\"").append(esc(ai.packageName)).append("\"");

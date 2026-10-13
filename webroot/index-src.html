@@ -6,7 +6,7 @@
 <title>xzm 管理器</title>
 <script>
 /* 启动探针：在任何主逻辑前运行，把关键状态写进页面，方便定位崩溃点 */
-window.__XZM_BOOT__ = { ver:'1.0.55', t:Date.now(), steps:[] };
+window.__XZM_BOOT__ = { ver:'1.0.56', t:Date.now(), steps:[] };
 window.__xzmStep = function(s){ try{ window.__XZM_BOOT__.steps.push(s); var el=document.getElementById('bootProbe'); if(el) el.textContent = '构建 ' + window.__XZM_BOOT__.ver + ' | 启动: ' + window.__XZM_BOOT__.steps.join(' → '); }catch(e){} };
 window.addEventListener('error', function(e){
   try{
@@ -327,7 +327,7 @@ window.__xzmStep('head-ok');
   </div>
   <div class="chips">
     <span class="chip" id="chipEnv">检测中…</span>
-    <span class="chip" id="chipVer">v1.0.55</span>
+    <span class="chip" id="chipVer">v1.0.56</span>
   </div>
 </header>
 

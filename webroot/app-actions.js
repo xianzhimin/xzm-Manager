@@ -338,8 +338,16 @@ async function loadApps(){
   const list = $('appList'); if(!list) return;
   list.innerHTML = '<div class="arc-empty">读取中…</div>';
   let r;
-  try{ r = await ctl('list-apps-full',['72']); }
+  try{ r = await ctl('list-apps-full',['56']); }
   catch(e){ list.innerHTML = '<div class="arc-empty">读取失败：'+esc(String(e))+'</div>'; return; }
+  // 若拿到的条目都在但图标全空（响应过大被截断 / 生成失败），退化为无图标模式重试
+  if(r && r.ok && (r.apps||[]).length){
+    const n = r.apps.length;
+    const withIcon = r.apps.filter(a=>a && a.icon).length;
+    if(withIcon === 0){
+      try{ const r2 = await ctl('list-apps-full',['56','noicon']); if(r2 && r2.ok && (r2.apps||[]).length) r = r2; }catch(e){}
+    }
+  }
   if(!r || !r.ok){
     // 退化到仅包名
     try{ r = await ctl('list-apps',[]); }catch(e){}

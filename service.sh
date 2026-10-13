@@ -33,6 +33,34 @@ rm -f "$DATA_DIR/state/terminal.pid" "$DATA_DIR/state/terminal.socket.path" \
 
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] xzm 管理器已随系统启动" >> "$DATA_DIR/logs/module.log"
 
+# ── 自愈部署：无论安装时是否成功，开机都补齐 APK/payload 与部署钩子 ──
+# （跨设备兼容：某些管理器安装时 customize.sh 对 /data/adb 的写入会被 SELinux 限制）
+mkdir -p "$DATA_DIR/payload" "$DATA_DIR/bin" 2>/dev/null
+if [ -f "$MODDIR/payload/xzm-launcher.apk" ]; then
+  if [ ! -f "$DATA_DIR/payload/xzm-launcher.apk" ] || \
+     [ "$(wc -c < "$MODDIR/payload/xzm-launcher.apk" 2>/dev/null)" != "$(wc -c < "$DATA_DIR/payload/xzm-launcher.apk" 2>/dev/null)" ]; then
+    cp -f "$MODDIR/payload/xzm-launcher.apk" "$DATA_DIR/payload/xzm-launcher.apk" 2>/dev/null
+    chmod 0644 "$DATA_DIR/payload/xzm-launcher.apk" 2>/dev/null
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] payload apk deployed" >> "$DATA_DIR/logs/module.log"
+  fi
+fi
+# 补齐 backend 脚本（xzmctl.sh / applister.dex 之前漏拷 → 应用列表/图标读取失败）
+for f in xzmctl.sh applister.dex axml-info.sh; do
+  if [ -f "$MODDIR/bin/$f" ] && [ ! -f "$DATA_DIR/bin/$f" ]; then
+    cp -f "$MODDIR/bin/$f" "$DATA_DIR/bin/$f" 2>/dev/null
+    chmod 0755 "$DATA_DIR/bin/$f" 2>/dev/null
+  fi
+done
+# 部署开机钩子（兼容 KernelSU/SukiSU/APatch/Magisk）
+if [ -f "$MODDIR/boot-completed.sh" ]; then
+  mkdir -p /data/adb/boot-completed.d 2>/dev/null
+  cp -f "$MODDIR/boot-completed.sh" /data/adb/boot-completed.d/xzm_manager.sh 2>/dev/null
+  chmod 0755 /data/adb/boot-completed.d/xzm_manager.sh 2>/dev/null
+  chown 0:0 /data/adb/boot-completed.d/xzm_manager.sh 2>/dev/null
+  # 兜底：延迟直接执行一次部署（不依赖系统触发 boot-completed.d）
+  ( sleep 25; sh "$MODDIR/boot-completed.sh" >> "$DATA_DIR/logs/bootdeploy.log" 2>&1 ) &
+fi
+
 # 复制通知脚本到数据目录
 if [ -f "$MODDIR/bin/xzm-notify.sh" ]; then
   cp -f "$MODDIR/bin/xzm-notify.sh" "$DATA_DIR/bin/xzm-notify.sh" 2>/dev/null

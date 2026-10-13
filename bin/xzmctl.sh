@@ -712,7 +712,7 @@ cmd_apk_info() {
 
 # list-apps-full  —— 列出已安装应用（含真实名称 + 图标 + 版本），通过 app_process 调 Android API
 cmd_list_apps_full() {
-  local here iconpx="${1:-64}"
+  local here iconpx="${1:-64}" noicon="${2:-}"
   here="$(dirname "$0")"
   local dex="$here/applister.dex"
   [ -f "$dex" ] || { printf '{"ok":false,"error":"缺少 applister.dex"}\n'; return; }
@@ -720,7 +720,7 @@ cmd_list_apps_full() {
   mkdir -p "$dexdir" 2>/dev/null
   cp -f "$dex" "$dexdir/classes.dex" 2>/dev/null
   local out
-  out="$(cd "$dexdir" && CLASSPATH=classes.dex app_process /system/bin AppLister "$iconpx" 2>/dev/null)"
+  out="$(cd "$dexdir" && CLASSPATH=classes.dex app_process /system/bin AppLister "$iconpx" "" "$noicon" 2>/dev/null)"
   rm -rf "$dexdir"
   if [ -z "$out" ]; then
     printf '{"ok":false,"error":"app_process 无输出"}\n'

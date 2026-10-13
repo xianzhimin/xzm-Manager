@@ -187,13 +187,14 @@ async function _startTerminal(target){
   const launch =
     `mkdir -p ${MODDATA}/logs /data/local/tmp 2>/dev/null; ` +
     `echo "=== launch $(date) target='${esc}' ===" >> /data/local/tmp/xzm-ttyd.log 2>&1; ` +
-    `pgrep -x ttyd >/dev/null 2>&1 && killall ttyd 2>/dev/null; ` +
+    `pgrep -x ttyd >/dev/null 2>&1 && (killall ttyd 2>/dev/null || pkill -x ttyd 2>/dev/null); ` +
     `sleep 0.3; ` +
     `cd ${MODDATA}; ` +
-    `( setsid ${MODDATA}/bin/ttyd -p ${TERM_PORT} -i 0.0.0.0 -W -w /data/adb ` +
+    `SETSID=""; command -v setsid >/dev/null 2>&1 && SETSID="setsid"; ` +
+    `nohup $SETSID ${MODDATA}/bin/ttyd -p ${TERM_PORT} -i 0.0.0.0 -W -w /data/adb ` +
     `${MODDATA}/bin/xzm-shell.sh ${target ? "'"+esc+"'" : "''"} ` +
-    `</dev/null >>${MODDATA}/logs/ttyd.log 2>>/data/local/tmp/xzm-ttyd.log & ) ; ` +
-    `sleep 0.5; ` +
+    `</dev/null >>${MODDATA}/logs/ttyd.log 2>>/data/local/tmp/xzm-ttyd.log & ` +
+    `sleep 0.6; ` +
     `echo "after-launch pgrep:"; pgrep -x ttyd || echo none; ` +
     `echo DONE`;
   // 不 await 这条（可能因后台任务不返回），用竞速超时

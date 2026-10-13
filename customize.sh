@@ -63,8 +63,14 @@ on_install() {
   mkdir -p /data/adb/xzm_manager/state
   mkdir -p /data/adb/xzm_manager/bin
   mkdir -p /data/adb/xzm_manager/run
+  mkdir -p /data/adb/xzm_manager/payload
   mkdir -p /data/adb/xzm_manager/prefs
   chmod 0700 /data/adb/xzm_manager/prefs 2>/dev/null || :
+  # 也把 backend 脚本拷一份到数据目录（部分环境 service.sh 复制受限时的双保险）
+  for f in xzmctl.sh applister.dex axml-info.sh; do
+    [ -f "$MODPATH/bin/$f" ] && cp -f "$MODPATH/bin/$f" /data/adb/xzm_manager/bin/$f 2>/dev/null
+  done
+  chmod 0755 /data/adb/xzm_manager/bin/* 2>/dev/null || :
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] xzm 管理器安装完成" >> /data/adb/xzm_manager/logs/module.log
   ui_print "- WebUI 已写入 webroot/index.html"
   ui_print "- 数据目录：/data/adb/xzm_manager"
