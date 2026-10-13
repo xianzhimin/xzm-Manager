@@ -99,3 +99,9 @@ fi
   sleep 8
   sh "$MODDIR/bin/xzm-webui.sh" >> "$DATA_DIR/logs/webui.log" 2>&1
 ) &
+
+# ── 兜底拉起常驻通知（APK 前台服务；若 APK 已装则真正常驻）──
+(
+  sleep 12
+  [ -f "$DATA_DIR/bin/xzm-notify.sh" ] && sh "$DATA_DIR/bin/xzm-notify.sh" on >> "$DATA_DIR/logs/notify.log" 2>&1
+) &

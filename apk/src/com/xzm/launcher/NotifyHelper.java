@@ -17,6 +17,18 @@ public class NotifyHelper {
 
     public static final int WEBUI_PORT = 7690;
 
+    /** 确保前台服务在运行（在 App 处于前台时调用才会被系统允许） */
+    public static void ensureService(Context ctx) {
+        try {
+            Intent i = new Intent(ctx, NotifyService.class);
+            if (Build.VERSION.SDK_INT >= 26) {
+                ctx.startForegroundService(i);
+            } else {
+                ctx.startService(i);
+            }
+        } catch (Exception ignored) {}
+    }
+
     /** 打开独立 WebUI（我们自己的 WebView 容器，不含 SukiSU） */
     public static void openWebUI(Context ctx) {
         openWebUI(ctx, null);

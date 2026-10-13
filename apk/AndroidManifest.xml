@@ -54,6 +54,9 @@
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
             </intent-filter>
+            <intent-filter>
+                <action android:name="com.xzm.launcher.START_NOTIFY" />
+            </intent-filter>
         </receiver>
 
     </application>

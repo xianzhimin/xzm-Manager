@@ -28,6 +28,8 @@ public class MainActivity extends Activity {
     }
 
     private void dispatch(Intent intent) {
+        // 每次进入 App（点击图标/通知）都顺手保证前台服务在跑（前台态启动 FGS 才被允许）
+        NotifyHelper.ensureService(this);
         String action = null;
         if (intent != null) {
             action = intent.getStringExtra("xzm_action");

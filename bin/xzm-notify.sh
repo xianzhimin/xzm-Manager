@@ -52,17 +52,36 @@ open_webui(){
 }
 
 # ── 发布通知 ──
+# 关键：Android 14+/ColorOS 上 `cmd notification post` 只会发一条"shell 通知"，
+# 不常驻也不在通知栏显示。正解是让伴随 APK 的前台服务(NotifyService)来发常驻通知。
 post_notify(){
   DT=$(date '+%m-%d %H:%M')
   MSG="点击打开管理界面 · 更新于 $DT"
-  # Android 11+ 的 cmd notification（需要 root）
-  if cmd notification post -S bigtext -t "xzm 管理器" "$TAG" "$MSG" >/dev/null 2>&1; then
-    log "posted via cmd notification"
-    return 0
+
+  # 0) 首选：拉起 APK 的前台服务（真正常驻、带图标、点击打开 WebUI）
+  if pm path com.xzm.launcher >/dev/null 2>&1; then
+    am start-foreground-service -n com.xzm.launcher/.NotifyService >/dev/null 2>&1
+    local rc=$?
+    sleep 1
+    # 校验是否真的起来了（前台服务存在 = 通知在栏）
+    if dumpsys activity services com.xzm.launcher 2>/dev/null | grep -q "NotifyService" \
+       && dumpsys activity services com.xzm.launcher 2>/dev/null | grep -q "isForeground=true"; then
+      log "posted via APK foreground service"
+      return 0
+    fi
+    # 后台启动被拒时，退一步：用 APK 广播让 App 自己在前台态拉起
+    am broadcast -a com.xzm.launcher.START_NOTIFY -n com.xzm.launcher/.BootReceiver >/dev/null 2>&1
+    sleep 1
+    if dumpsys activity services com.xzm.launcher 2>/dev/null | grep -q "isForeground=true"; then
+      log "posted via APK bootreceiver"
+      return 0
+    fi
+    log "apk service start blocked (rc=$rc), fallback to cmd notification"
   fi
-  # 某些系统用 -o 常驻
-  if cmd notification post -o -S bigtext -t "xzm 管理器" "$TAG" "$MSG" >/dev/null 2>&1; then
-    log "posted via cmd notification -o"
+
+  # 1) 兜底：Android 11+ 的 cmd notification（部分 ROM 上是 shell 通知，不常驻）
+  if cmd notification post -S bigtext -t "xzm 管理器" "$TAG" "$MSG" >/dev/null 2>&1; then
+    log "posted via cmd notification (fallback)"
     return 0
   fi
   log "post failed"
@@ -70,6 +89,8 @@ post_notify(){
 }
 
 cancel_notify(){
+  # 停掉 APK 前台服务 + 清 shell 通知
+  am stopservice -n com.xzm.launcher/.NotifyService >/dev/null 2>&1
   cmd notification cancel "$TAG" >/dev/null 2>&1
   log "cancelled"
 }

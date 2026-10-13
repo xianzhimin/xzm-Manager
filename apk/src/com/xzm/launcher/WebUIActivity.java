@@ -34,6 +34,9 @@ public class WebUIActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        // App 处于前台，此时拉起前台服务（常驻通知）是系统允许的
+        NotifyHelper.ensureService(this);
+
         FrameLayout root = new FrameLayout(this);
         root.setBackgroundColor(Color.WHITE);
 
