@@ -172,13 +172,18 @@ async function termPrepare(){
   return (r.output || r.error || '').trim();
 }
 async function startTerminal(target /* 可选：要运行的文件 */){
+  // 防御：本函数也被当作按钮点击处理器直接调用，此时 target 是 Event 对象 → 归零
+  if(target && typeof target !== 'string') target = (typeof target.data === 'string' ? target.data : '');
+  return _startTerminal(target);
+}
+async function _startTerminal(target){
   busy(true);
   let chk = '';
   try{ chk = await termPrepare(); }catch(e){ busy(false); showResult('终端启动失败','检查阶段异常：'+e.message); return; }
   if(chk.includes('BIN_MISSING')){ busy(false); showResult('终端启动失败','缺少 ttyd 二进制。\n'+chk); return; }
   if(chk.includes('SH_MISSING')){ busy(false); showResult('终端启动失败','缺少 xzm-shell.sh。\n'+chk); return; }
   // JieMoSi 式：把目标文件作为 ttyd shell 的参数传入（运行完进入 root shell）
-  const esc = (target||'').replace(/'/g, "'\\''");
+  const esc = String(target || '').replace(/'/g, "'\\''");
   const launch =
     `mkdir -p ${MODDATA}/logs /data/local/tmp 2>/dev/null; ` +
     `echo "=== launch $(date) target='${esc}' ===" >> /data/local/tmp/xzm-ttyd.log 2>&1; ` +
@@ -223,7 +228,7 @@ async function startTerminal(target /* 可选：要运行的文件 */){
     }
   }, 2000);
 }
-$('btnTermStart').addEventListener('click', startTerminal);
+$('btnTermStart').addEventListener('click', ()=>startTerminal());
 $('btnTermStop').addEventListener('click', async ()=>{
   await ctl('exec',[btoa(`pkill -f 'ttyd.*xzm' 2>/dev/null; echo done`)]);
   $('termFrame').src='about:blank';
