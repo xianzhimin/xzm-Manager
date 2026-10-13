@@ -18,7 +18,7 @@ public class AppLister {
     public static void main(String[] args) {
         int iconPx = 96;
         if (args.length > 0) { try { iconPx = Integer.parseInt(args[0]); } catch (Exception e) {} }
-        String filter = args.length > 1 ? args[1] : null;
+        String filter = (args.length > 1 && args[1] != null && !args[1].isEmpty()) ? args[1] : null;
         // 第三个参数 "noicon" → 不生成图标（体积小，弱设备兜底）
         boolean noIcon = args.length > 2 && "noicon".equals(args[2]);
 

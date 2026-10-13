@@ -418,17 +418,19 @@ archive_kind() {
     *.bz2) printf 'bz2'; return ;;
     *.xz) printf 'xz'; return ;;
     *.7z) printf '7z'; return ;;
+    *.rar) printf 'rar'; return ;;
   esac
   # 用魔数判断
-  m="$(od -An -tx1 -N4 "$f" 2>/dev/null | tr -d ' \r\n')"
+  m="$(od -An -tx1 -N8 "$f" 2>/dev/null | tr -d ' \r\n')"
   case "$m" in
-    504b0304|504b0506|504b0708) printf 'zip' ;;
-    1f8b*) printf 'gz' ;;
-    425a68*) printf 'bz2' ;;
-    fd377a585a00) printf 'xz' ;;
-    377abcaf271c) printf '7z' ;;
-    *) printf 'unknown' ;;
+    504b0304*|504b0506*|504b0708*) printf 'zip'; return ;;
+    1f8b*) printf 'gz'; return ;;
+    425a68*) printf 'bz2'; return ;;
+    fd377a585a00*) printf 'xz'; return ;;
+    377abcaf271c*) printf '7z'; return ;;
+    526172211a0700*|526172211a0701*) printf 'rar'; return ;;  # Rar! 4.x / 5.x
   esac
+  printf 'unknown'
 }
 
 # extract <archive> <destDir>
@@ -462,13 +464,33 @@ cmd_extract() {
     bz2)     { [ -x "$bb" ] && "$bb" bzip2 -dc "$src" > "$dest/$(basename "${src%.bz2}")" || bzip2 -dc "$src" > "$dest/$(basename "${src%.bz2}")"; } >>"$log" 2>&1; code=$? ;;
     xz)      { [ -x "$bb" ] && "$bb" xz -dc "$src" > "$dest/$(basename "${src%.xz}")" || xz -dc "$src" > "$dest/$(basename "${src%.xz}")"; } >>"$log" 2>&1; code=$? ;;
     7z)
-      local z=""
-      if command -v 7z >/dev/null 2>&1; then z="$(command -v 7z)"
-      elif command -v 7za >/dev/null 2>&1; then z="$(command -v 7za)"; fi
-      if [ -n "$z" ]; then
-        "$z" x -y -o"$dest" "$src" >>"$log" 2>&1; code=$?
+      local z7=""
+      if command -v 7z >/dev/null 2>&1; then z7="$(command -v 7z)"
+      elif command -v 7za >/dev/null 2>&1; then z7="$(command -v 7za)"
+      elif command -v 7zz >/dev/null 2>&1; then z7="$(command -v 7zz)"
+      elif [ -x "$EXT_BIN/7zz" ]; then z7="$EXT_BIN/7zz"
+      elif [ -x "$DATA_DIR/bin/7zz" ]; then z7="$DATA_DIR/bin/7zz"; fi
+      if [ -n "$z7" ]; then
+        "$z7" x -y -o"$dest" "$src" >>"$log" 2>&1; code=$?
+      elif command -v bsdtar >/dev/null 2>&1; then
+        bsdtar -xf "$src" -C "$dest" >>"$log" 2>&1; code=$?
       else
-        printf '{"ok":false,"error":"本机无 7z 解压程序（仅支持 zip/tar/gz/xz）"}\n'; return
+        printf '{"ok":false,"error":"本机无 7z/bsdtar，无法解压 .7z（可安装 7z 或将包转成 zip）"}\n'; return
+      fi ;;
+    rar)
+      local zr=""
+      if command -v 7z >/dev/null 2>&1; then zr="$(command -v 7z)"
+      elif command -v 7zz >/dev/null 2>&1; then zr="$(command -v 7zz)"
+      elif [ -x "$EXT_BIN/7zz" ]; then zr="$EXT_BIN/7zz"
+      elif [ -x "$DATA_DIR/bin/7zz" ]; then zr="$DATA_DIR/bin/7zz"; fi
+      if [ -n "$zr" ]; then
+        "$zr" x -y -o"$dest" "$src" >>"$log" 2>&1; code=$?
+      elif command -v unrar >/dev/null 2>&1; then
+        unrar x -o+ "$src" "$dest/" >>"$log" 2>&1; code=$?
+      elif command -v bsdtar >/dev/null 2>&1; then
+        bsdtar -xf "$src" -C "$dest" >>"$log" 2>&1; code=$?
+      else
+        printf '{"ok":false,"error":"本机无 7z/unrar，无法解压 .rar"}\n'; return
       fi ;;
     *)
       printf '{"ok":false,"error":"不支持的压缩格式: %s"}\n' "$(json_escape "$(basename "$src")")"; return ;;

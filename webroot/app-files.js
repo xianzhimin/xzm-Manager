@@ -198,6 +198,11 @@ function switchPage(page){
 document.querySelectorAll('.tab').forEach(tab=>{
   tab.addEventListener('click',()=>switchPage(tab.dataset.page));
 });
+// 右上角设置按钮（替代原底部「设置」标签）
+(function(){
+  const b = document.getElementById('btnSettingsTop');
+  if(b) b.addEventListener('click', ()=>switchPage('set'));
+})();
 
 /* ── 支持 URL hash 直达页面，如 #term (#终端) ── */
 /* ── 也支持开机/通知栏传入的标记文件 /data/local/tmp/.xzm_open_page ── */

@@ -6,7 +6,7 @@
 <title>xzm 管理器</title>
 <script>
 /* 启动探针：在任何主逻辑前运行，把关键状态写进页面，方便定位崩溃点 */
-window.__XZM_BOOT__ = { ver:'1.0.56', t:Date.now(), steps:[] };
+window.__XZM_BOOT__ = { ver:'1.0.57', t:Date.now(), steps:[] };
 window.__xzmStep = function(s){ try{ window.__XZM_BOOT__.steps.push(s); var el=document.getElementById('bootProbe'); if(el) el.textContent = '构建 ' + window.__XZM_BOOT__.ver + ' | 启动: ' + window.__XZM_BOOT__.steps.join(' → '); }catch(e){} };
 window.addEventListener('error', function(e){
   try{
@@ -302,7 +302,9 @@ window.__xzmStep('head-ok');
   @media (max-width:560px){
     /* 窄竖屏：仍保持左右两栏，只做更紧凑的间距 */
     .panes{gap:6px}
-    .chips{display:none}
+    .chips .chip{display:none}
+    .chips{margin-left:auto}
+    .header-set{display:flex;width:36px;height:36px;font-size:18px}
     .app-header{padding:6px 8px}
     .toolbar{gap:5px}
     .toolbar button{font-size:11px;padding:6px 8px}
@@ -327,7 +329,8 @@ window.__xzmStep('head-ok');
   </div>
   <div class="chips">
     <span class="chip" id="chipEnv">检测中…</span>
-    <span class="chip" id="chipVer">v1.0.56</span>
+    <span class="chip" id="chipVer">v1.0.57</span>
+    <button class="icon-btn ghost header-set" id="btnSettingsTop" title="设置">⚙️</button>
   </div>
 </header>
 
@@ -453,7 +456,6 @@ window.__xzmStep('head-ok');
   <button class="tab" data-page="apps"><span class="ti">📦</span>应用</button>
   <button class="tab" data-page="term"><span class="ti">⌨️</span>终端</button>
   <button class="tab" data-page="book"><span class="ti">🔖</span>书签</button>
-  <button class="tab" data-page="set"><span class="ti">⚙️</span>设置</button>
 </nav>
 
 <div class="sheet-backdrop" id="sheetBk">
